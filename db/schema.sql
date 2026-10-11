@@ -3,9 +3,12 @@ create table if not exists players (
   display_name text not null default 'Guest Miner',
   balance integer not null default 860,
   starter_level integer not null default 1,
+  last_mined_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table players add column if not exists last_mined_at timestamptz not null default now();
 
 create table if not exists catalog_items (
   id text primary key,

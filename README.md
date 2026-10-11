@@ -12,7 +12,7 @@ MVP **virtual mining simulator** full-stack berbasis Next.js. Pemain mengelola m
 - Inventory tersimpan melalui API.
 - Pembelian dicatat sebagai transaksi.
 - Upgrade Starter Rig dan aktivasi Silent Runner.
-- Claim reward melalui endpoint server.
+- Auto-accrual: hasil mining masuk ke saldo berdasarkan hash rate tanpa tombol claim.
 - PostgreSQL schema untuk Vercel/Neon.
 - Fallback demo mode jika database belum dikonfigurasi.
 - Responsive desktop/mobile.
@@ -22,7 +22,7 @@ MVP **virtual mining simulator** full-stack berbasis Next.js. Pemain mengelola m
 ```text
 POST /api/auth/guest   membuat atau memakai guest session
 GET  /api/game         membaca state pemain
-POST /api/game         action: claim | buy | upgrade | activate
+POST /api/game         action: sync | buy | upgrade | activate
 GET  /api/shop         membaca catalog marketplace
 ```
 
@@ -80,7 +80,7 @@ Implementasi game menggunakan bentuk balok generik, panel cyan, vents, antenna, 
 ## Audio retro 8-bit
 
 - Background music: `public/audio/mining-retro-8bit.wav`, loopable dan dijalankan setelah pemain menekan tombol `8-BIT AUDIO` agar sesuai aturan autoplay browser.
-- SFX utama dibuat secara procedural melalui Web Audio API untuk klik, claim reward, pembelian, dan upgrade; tidak membutuhkan file tambahan.
+- SFX utama dibuat secara procedural melalui Web Audio API untuk klik, pembelian, dan upgrade; tidak membutuhkan file tambahan.
 
 ## Leaderboard global
 
