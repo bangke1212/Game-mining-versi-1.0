@@ -18,18 +18,18 @@ export async function GET(request: Request) {
   if (!code || !state || !savedState || state !== savedState || !verifier) return fail("invalid_state");
 
   const clientId = process.env.TWITTER_CLIENT_ID;
-  const clientSecret = process.env.TWITTER_CLIENT_SECRET;
   const authSecret = process.env.AUTH_SECRET;
-  if (!clientId || !clientSecret || !authSecret) return fail("missing_config");
+  if (!clientId || !authSecret) return fail("missing_config");
 
   const tokenBody = new URLSearchParams({ code, grant_type: "authorization_code", client_id: clientId, redirect_uri: redirectUri(request), code_verifier: verifier });
-  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
-  const tokenResponse = await fetch("https://api.twitter.com/2/oauth2/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: `Basic ${basicAuth}` }, body: tokenBody });
+  const headers: Record<string, string> = { "Content-Type": "application/x-www-form-urlencoded" };
+  if (process.env.TWITTER_CLIENT_SECRET) headers.Authorization = `Basic ${Buffer.from(`${clientId}:${process.env.TWITTER_CLIENT_SECRET}`).toString("base64")}`;
+  const tokenResponse = await fetch("https://api.x.com/2/oauth2/token", { method: "POST", headers, body: tokenBody });
   if (!tokenResponse.ok) return fail("token_exchange_failed");
   const token = await tokenResponse.json() as { access_token?: string };
   if (!token.access_token) return fail("token_missing");
 
-  const profileResponse = await fetch("https://api.twitter.com/2/users/me?user.fields=profile_image_url", { headers: { Authorization: `Bearer ${token.access_token}` } });
+  const profileResponse = await fetch("https://api.x.com/2/users/me?user.fields=profile_image_url", { headers: { Authorization: `Bearer ${token.access_token}` } });
   if (!profileResponse.ok) return fail("profile_failed");
   const profile = await profileResponse.json() as { data?: { id: string; name: string; username: string; profile_image_url?: string } };
   if (!profile.data) return fail("profile_missing");
