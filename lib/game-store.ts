@@ -12,6 +12,11 @@ const catalog: CatalogItem[] = [
 
 type DemoPlayer = { balance: number; inventory: Record<string, number>; booster: number; rig2: boolean; level: number };
 const demoPlayers = new Map<string, DemoPlayer>();
+const demoLeaderboard = new Map<string, { displayName: string; hashRate: number }>([
+  ["bot-1", { displayName: "HashPilot", hashRate: 146 }],
+  ["bot-2", { displayName: "NeonMiner", hashRate: 121 }],
+  ["bot-3", { displayName: "BlockSmith", hashRate: 94 }],
+]);
 const hasDb = Boolean(process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL);
 
 function getDemo(id: string) { if (!demoPlayers.has(id)) demoPlayers.set(id, { balance: 860, inventory: {}, booster: 0, rig2: false, level: 1 }); return demoPlayers.get(id)!; }
@@ -19,6 +24,21 @@ function baseHash(p: DemoPlayer) { return 18 + (p.level - 1) * 6 + (p.rig2 ? 10 
 
 export function getCatalog() { return catalog; }
 export function usingDatabase() { return hasDb; }
+
+export type LeaderboardEntry = { rank: number; playerId: string; displayName: string; hashRate: number; isCurrentPlayer: boolean };
+
+export async function submitScore(playerId: string) {
+  const state = await getState(playerId);
+  if (!hasDb) { demoLeaderboard.set(playerId, { displayName: state.player.name, hashRate: state.hashRate }); return; }
+  await seed();
+  await sql`insert into leaderboard_scores (player_id,display_name,hash_rate) values (${playerId},${state.player.name},${state.hashRate}) on conflict (player_id) do update set display_name=excluded.display_name, hash_rate=excluded.hash_rate, updated_at=now()`;
+}
+
+export async function getLeaderboard(playerId: string): Promise<LeaderboardEntry[]> {
+  await submitScore(playerId);
+  const rows = hasDb ? (await sql`select player_id, display_name, hash_rate from leaderboard_scores order by hash_rate desc, updated_at asc limit 20`).rows as any[] : Array.from(demoLeaderboard.entries()).map(([id, value]) => ({ player_id: id, display_name: value.displayName, hash_rate: value.hashRate }));
+  return rows.map((row, index) => ({ rank: index + 1, playerId: row.player_id, displayName: row.display_name, hashRate: Number(row.hash_rate), isCurrentPlayer: row.player_id === playerId }));
+}
 
 async function seed() { if (!hasDb) return; for (const item of catalog) await sql`insert into catalog_items (id,name,type,description,price,hash_power,energy_usage) values (${item.id},${item.name},${item.type},${item.description},${item.price},${item.hashPower},${item.energyUsage}) on conflict (id) do nothing`; }
 

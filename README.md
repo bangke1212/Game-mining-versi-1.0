@@ -76,3 +76,14 @@ Visual rig pada dashboard dibuat sebagai CSS illustration orisinal, bukan mengam
 - [Richard Bagnall — Sci-fi Planetary Mining Installation](https://r_bago.artstation.com/projects/Nq1Jog) — block-out modular, gantry, deck, crane, dan bahasa industrial sci-fi.
 
 Implementasi game menggunakan bentuk balok generik, panel cyan, vents, antenna, LED, dan animasi telemetry agar tidak menyalin merek atau aset proprietary.
+
+## Audio retro 8-bit
+
+- Background music: `public/audio/mining-retro-8bit.wav`, loopable dan dijalankan setelah pemain menekan tombol `8-BIT AUDIO` agar sesuai aturan autoplay browser.
+- SFX utama dibuat secara procedural melalui Web Audio API untuk klik, claim reward, pembelian, dan upgrade; tidak membutuhkan file tambahan.
+
+## Leaderboard global
+
+Leaderboard memakai tabel `leaderboard_scores` pada `db/schema.sql`. Server menghitung hash rate dari rig dan item yang tersimpan, kemudian melakukan upsert skor melalui `POST /api/leaderboard`. Frontend hanya menampilkan hasil server dan tidak mengirim angka hash rate dari client.
+
+Dengan `POSTGRES_URL`, skor menjadi global lintas pemain dan diurutkan berdasarkan `hash_rate`. Tanpa database, fallback demo menampilkan bot seed dan skor pemain pada instance server saat ini; fallback tersebut bukan leaderboard production yang persistent.
