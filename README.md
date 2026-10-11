@@ -67,3 +67,12 @@ Environment variable tidak disimpan di repository.
 - Marketplace antar-pemain.
 - Admin catalog untuk item dan harga.
 - Payment gateway untuk item digital (opsional).
+
+## Arah desain rig modular
+
+Visual rig pada dashboard dibuat sebagai CSS illustration orisinal, bukan mengambil gambar atau aset RollerCoin/LEGO. Referensi eksternal yang dipakai untuk arah bentuk modular dan industrial:
+
+- [Yanko Design — M2x2 modular brick workstation](https://www.yankodesign.com/2026/03/18/this-classic-1979-lego-computer-brick-hides-a-fully-functional-mac-mini-workstation-inside/) — bentuk wedge, panel layar miring, studs, dan kontrol modular.
+- [Richard Bagnall — Sci-fi Planetary Mining Installation](https://r_bago.artstation.com/projects/Nq1Jog) — block-out modular, gantry, deck, crane, dan bahasa industrial sci-fi.
+
+Implementasi game menggunakan bentuk balok generik, panel cyan, vents, antenna, LED, dan animasi telemetry agar tidak menyalin merek atau aset proprietary.
