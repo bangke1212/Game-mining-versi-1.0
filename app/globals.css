@@ -2,6 +2,7 @@
 
 :root { --ink:#e7eadf; --muted:#82918a; --bg:#111713; --sidebar:#0d120f; --panel:#1b241d; --panel-deep:#151c17; --line:#34423a; --green:#a8d58d; --green-bright:#c8f59b; --amber:#e7b866; --blue:#8fb6c8; --red:#d87861; }
 * { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
 html { background:var(--bg); }
 body { margin:0; background:linear-gradient(135deg,#0d130f 0%,#162018 50%,#0f1511 100%); color:var(--ink); font-family:'DM Sans',sans-serif; }
 body:before { content:''; position:fixed; inset:0; pointer-events:none; opacity:.11; background-image:linear-gradient(#d9f5c50c 1px,transparent 1px),linear-gradient(90deg,#d9f5c50c 1px,transparent 1px); background-size:28px 28px; mask-image:linear-gradient(to bottom,#000,transparent 85%); }
@@ -32,6 +33,8 @@ nav { display:grid; gap:5px; }
 .breadcrumb { display:flex; align-items:center; gap:12px; color:#66746a; font:700 10px 'Space Mono',monospace; letter-spacing:.08em; }
 .breadcrumb strong { color:#bdcabe; }
 .top-actions { display:flex; align-items:center; gap:13px; }
+.auth-button { display:inline-flex; align-items:center; gap:7px; color:#172217; background:var(--green); border:1px solid #8eb879; border-radius:3px; padding:8px 10px; font:700 9px 'Space Mono',monospace; text-decoration:none; white-space:nowrap; }
+.auth-button:hover { background:var(--green-bright); transform:translateY(-1px); }
 .sound-toggle,.db-pill { display:inline-flex; align-items:center; gap:7px; border:1px solid #34463a; background:#152018; color:#9eafa2; border-radius:3px; padding:8px 10px; font:700 9px 'Space Mono',monospace; letter-spacing:.02em; }
 .sound-toggle:hover { color:var(--green-bright); border-color:#6e9563; }
 .db-pill { color:var(--green); border-color:#4e704c; }
@@ -50,6 +53,7 @@ nav { display:grid; gap:5px; }
 .live-dot.dim { opacity:.4; box-shadow:none; }
 @keyframes blink { 50% { opacity:.45; transform:scale(.8); } }
 .panel { background:linear-gradient(135deg,#202a21,#182019); border:1px solid #34453a; border-radius:3px; box-shadow:0 16px 38px #00000024, inset 0 1px #ffffff08; }
+.hero-grid,.rig-panel,.shop-panel,.leaderboard-panel { scroll-margin-top:24px; }
 .hero-grid { display:grid; grid-template-columns:1.4fr .8fr; gap:16px; }
 .terminal-hero { padding:27px 30px 23px; position:relative; overflow:hidden; min-height:238px; background:linear-gradient(135deg,#1b2c1d,#182219); }
 .terminal-hero:after { content:'NEX'; position:absolute; right:22px; bottom:-33px; color:#b8e69708; font:700 160px 'Space Mono',monospace; letter-spacing:-.17em; }

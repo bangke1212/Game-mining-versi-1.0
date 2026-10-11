@@ -41,13 +41,6 @@ create table if not exists transactions (
   created_at timestamptz not null default now()
 );
 
-create table if not exists leaderboard_scores (
-  player_id text primary key references players(id) on delete cascade,
-  display_name text not null default 'Guest Miner',
-  hash_rate integer not null default 0,
-  updated_at timestamptz not null default now()
-);
-
 insert into catalog_items (id, name, type, description, price, hash_power, energy_usage) values
   ('rig-silent-runner', 'Silent Runner Rig', 'rig', 'Compact second rig, +10 GH/s', 700, 10, 3),
   ('gpu-nebula-x1', 'Nebula GPU X1', 'gpu', 'Efficient board, +12 GH/s', 420, 12, 2),
