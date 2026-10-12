@@ -34,6 +34,10 @@ export default function HomePage() {
   const [offlineReady, setOfflineReady] = useState(false);
   const [storageAvailable, setStorageAvailable] = useState(true);
   const [upgradeEffect, setUpgradeEffect] = useState<{ target: string; sequence: number } | null>(null);
+  const screenContentRef = useRef<HTMLDivElement | null>(null);
+  const sidebarRef = useRef<HTMLElement | null>(null);
+  const menuToggleRef = useRef<HTMLButtonElement | null>(null);
+  const firstNavItemRef = useRef<HTMLButtonElement | null>(null);
   const saveRef = useRef<GameSave | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   const storageWarningShownRef = useRef(false);
@@ -53,6 +57,39 @@ export default function HomePage() {
     storageWarningShownRef.current = true;
     notify("Penyimpanan browser tidak tersedia; progres hanya bertahan selama halaman terbuka.");
   }, [notify]);
+
+  function selectSection(id: string) {
+    setActiveSection(id);
+    setMenuOpen(false);
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      screenContentRef.current?.focus({ preventScroll: true });
+    });
+  }
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        menuToggleRef.current?.focus();
+        return;
+      }
+      if (event.key !== "Tab" || !window.matchMedia("(max-width: 760px)").matches) return;
+      const focusable = Array.from(sidebarRef.current?.querySelectorAll<HTMLElement>('a[href], button:not(:disabled)') || []);
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [menuOpen]);
 
   function playUpgradeSound() {
     try {
@@ -157,16 +194,6 @@ export default function HomePage() {
     return () => window.clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const sections = ["dashboard", "arcade", "rigs", "racks", "league", "market", "wallet"];
-    const observer = new IntersectionObserver((entries) => {
-      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-      if (visible) setActiveSection(visible.target.id);
-    }, { rootMargin: "-15% 0px -70% 0px", threshold: [0, 0.2, 0.5] });
-    sections.forEach((id) => { const element = document.getElementById(id); if (element) observer.observe(element); });
-    return () => observer.disconnect();
-  }, []);
-
   const permanentPower = save ? getPermanentPower(save) : 0;
   const temporaryPower = save ? getActiveTemporaryPower(save, now) : 0;
   const totalPower = permanentPower + temporaryPower;
@@ -243,20 +270,21 @@ export default function HomePage() {
     { id: "market", label: "Pasar Rig & Rak", icon: ShoppingBag },
     { id: "wallet", label: "Dompet Virtual", icon: Coins },
   ];
+  const activeNavLabel = navItems.find((item) => item.id === activeSection)?.label || "Markas";
 
   return (
     <main className="game-shell">
-      <aside className={`sidebar ${menuOpen ? "sidebar-open" : ""}`}>
-        <a className="brand" href="#dashboard" onClick={() => setMenuOpen(false)}>
+      <aside ref={sidebarRef} id="legioncoin-navigation" className={`sidebar ${menuOpen ? "sidebar-open" : ""}`}>
+        <a className="brand" href="#dashboard" onClick={(event) => { event.preventDefault(); selectSection("dashboard"); }}>
           <span className="brand-mark"><Image src="/images/legion-cat-mascot-512.png" width={58} height={58} alt="" priority /></span>
           <span><strong>LEGION<span>COIN</span></strong><small>PAW POWER / LOCAL WORLD</small></span>
         </a>
         <div className="nav-caption">RUANG KOMANDO</div>
         <nav className="side-nav" aria-label="Navigasi game">
           {navItems.map(({ id, label, icon: Icon }, index) => (
-            <a key={id} href={`#${id}`} className={`nav-link ${activeSection === id ? "nav-active" : ""}`} onClick={() => setMenuOpen(false)}>
+            <button key={id} ref={index === 0 ? firstNavItemRef : undefined} type="button" className={`nav-link ${activeSection === id ? "nav-active" : ""}`} aria-current={activeSection === id ? "page" : undefined} onClick={() => selectSection(id)}>
               <Icon size={17} strokeWidth={1.8} /><span>{label}</span><small>0{index + 1}</small>
-            </a>
+            </button>
           ))}
         </nav>
         <div className="side-divider" />
@@ -272,13 +300,13 @@ export default function HomePage() {
         </div>
       </aside>
 
-      {menuOpen && <button className="mobile-scrim" aria-label="Tutup menu" onClick={() => setMenuOpen(false)} />}
+      {menuOpen && <button className="mobile-scrim" aria-label="Tutup menu" onClick={() => { setMenuOpen(false); menuToggleRef.current?.focus(); }} />}
 
       <section className="main-area">
         <header className="topbar">
           <div className="topbar-left">
-            <button className="mobile-menu" aria-label="Buka menu" onClick={() => setMenuOpen((open) => !open)}><Menu size={19} /></button>
-            <div className="crumb"><span>LEGION OUTPOST</span><ChevronRight size={13} /><b>RUANG TAMBANG</b></div>
+            <button ref={menuToggleRef} className="mobile-menu" aria-label={menuOpen ? "Tutup menu" : "Buka menu"} aria-expanded={menuOpen} aria-controls="legioncoin-navigation" onClick={() => { const opening = !menuOpen; setMenuOpen(opening); if (opening) window.requestAnimationFrame(() => firstNavItemRef.current?.focus()); else menuToggleRef.current?.focus(); }}><Menu size={19} /></button>
+            <div className="crumb" aria-live="polite"><span>LEGION OUTPOST</span><ChevronRight size={13} /><b>{activeNavLabel.toUpperCase()}</b></div>
           </div>
           <div className="topbar-right">
             <span className="save-pill"><span className="save-dot" /> {!storageAvailable ? "PROGRES SESI SAJA" : offlineReady ? "TERSIMPAN · OFFLINE READY" : "SAVE LOKAL AKTIF"}</span>
@@ -286,8 +314,9 @@ export default function HomePage() {
           </div>
         </header>
 
-        <div className="content-wrap">
-          <section id="dashboard" className="welcome-row">
+        <div ref={screenContentRef} className="content-wrap" role="region" aria-label={`Modul ${activeNavLabel}`} tabIndex={-1}>
+          {activeSection === "dashboard" && <section className="module-screen dashboard-screen" id="dashboard">
+          <section className="welcome-row">
             <div><p className="eyebrow"><span className="eyebrow-star">✦</span> SELAMAT DATANG DI LEGION OUTPOST</p><h1>Tambang virtual.<br /><em>Petualangan nyata.</em></h1><p className="welcome-copy">Mainkan mini-game, kumpulkan power, dan naiki liga bersama kru kucingmu.</p></div>
             <div className="mascot-hero"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><span className="hero-glow" /><Image src="/images/legion-cat-mascot-512.png" width={300} height={300} alt="Kucing penambang LegionCoin" priority /><span className="mascot-caption"><Sparkles size={13} /> KAPTEN PAW</span></div>
             <div className="offline-banner"><ShieldCheck size={17} /><span><b>{storageAvailable ? "SEMUA VIRTUAL, SEMUA MILIK SAVE LOKAL" : "PENYIMPANAN BROWSER TIDAK TERSEDIA"}</b><small>{storageAvailable ? "Tidak ada crypto sungguhan, akun online, atau transaksi jaringan." : "Progres hanya tersimpan selama halaman ini tetap terbuka."}</small></span><LockKeyhole size={15} className="banner-lock" /></div>
@@ -301,15 +330,22 @@ export default function HomePage() {
           </section>
 
           <section className="play-panel panel" aria-label="Terminal arcade LegionCoin">
-            <div className="play-copy"><div className="section-label"><Gamepad2 size={14} /> TERMINAL ARCADE / BONUS VIRTUAL</div><h2>Jeda sebentar.<br /><span>Tambang lebih pintar.</span></h2><p>Mainkan tantangan arcade singkat untuk bonus LC virtual. Paw Rush juga memberi power sementara; Bit Catch dan Memory Mine menambah variasi skor.</p><a className="primary-button" href="#arcade"><Gamepad2 size={16} /> Buka terminal arcade <ChevronRight size={15} /></a><div className="game-reward"><Coins size={13} /><span>HADIAH LC LOKAL · MAKS. {MAX_ARCADE_REWARD_PER_DAY} LC ARCADE / HARI</span></div></div>
+            <div className="play-copy"><div className="section-label"><Gamepad2 size={14} /> TERMINAL ARCADE / BONUS VIRTUAL</div><h2>Jeda sebentar.<br /><span>Tambang lebih pintar.</span></h2><p>Mainkan tantangan arcade singkat untuk bonus LC virtual. Paw Rush juga memberi power sementara; Bit Catch dan Memory Mine menambah variasi skor.</p><button className="primary-button" type="button" onClick={() => selectSection("arcade")}><Gamepad2 size={16} /> Buka terminal arcade <ChevronRight size={15} /></button><div className="game-reward"><Coins size={13} /><span>HADIAH LC LOKAL · MAKS. {MAX_ARCADE_REWARD_PER_DAY} LC ARCADE / HARI</span></div></div>
             <div className="play-art"><div className="game-sun" /><div className="pixel-cloud cloud-a" /><div className="pixel-cloud cloud-b" /><div className="mine-hill hill-back" /><div className="mine-hill hill-front" /><div className="ore ore-one">✦</div><div className="ore ore-two">✦</div><div className="play-cat"><Image src="/images/legion-cat-mascot-512.png" width={184} height={184} alt="" /></div><span className="floating-paw">✦</span><span className="art-tag"><Pickaxe size={12} /> PAW POWER, LET&apos;S GO!</span></div>
           </section>
 
-          <ArcadeHub dailyEarned={arcadeEarnedToday} dailyLimit={MAX_ARCADE_REWARD_PER_DAY} onComplete={completeArcade} />
+          <section className="quick-access">
+            <div className="quick-access-heading"><div><span className="section-label"><Sparkles size={13} /> RUANG TERPISAH</span><h2>Pilih <span>modulmu</span></h2></div><p>Setiap tombol membuka satu bagan khusus, bukan menggulir seluruh markas.</p></div>
+            <div className="quick-access-grid">{navItems.filter((item) => item.id !== "dashboard").map(({ id, label, icon: Icon }, index) => <button className="quick-access-card" key={id} type="button" onClick={() => selectSection(id)}><span className="quick-access-icon"><Icon size={18} /></span><span className="quick-access-copy"><b>{label}</b><small>BUKA RUANG 0{index + 1}</small></span><ChevronRight size={15} /></button>)}</div>
+          </section>
+          </section>}
 
-          <div className="section-heading" id="rigs"><div><p className="eyebrow">SEKTOR 02 / RUANG KERJA</p><h2>Rig mining <span>kamu</span></h2></div><span className="count-chip"><HardDrive size={13} /> {activeMiners.length} MINER · {activeRacks.length} RAK</span></div>
-          <section className="rigs-layout">
-            <div className="rigs-card panel">
+          {activeSection === "arcade" && <section className="module-screen"><div className="module-screen-heading"><p className="eyebrow">MODUL 01 / PERMAINAN SAMPINGAN</p><h1>Arcade <span>LegionCoin</span></h1><p>Ruang bermain mandiri untuk mendapatkan bonus LC virtual. Selesaikan sesi di layar ini untuk mengklaim hadiah.</p></div><ArcadeHub dailyEarned={arcadeEarnedToday} dailyLimit={MAX_ARCADE_REWARD_PER_DAY} onComplete={completeArcade} /></section>}
+
+          {(activeSection === "rigs" || activeSection === "league") && <section className="module-screen rigs-screen">
+          <div className="section-heading" id={activeSection === "rigs" ? "rigs" : "league"}><div><p className="eyebrow">{activeSection === "rigs" ? "SEKTOR 02 / RUANG KERJA" : "MODUL 05 / TANGGA PERINGKAT"}</p><h2>{activeSection === "rigs" ? <>Rig mining <span>kamu</span></> : <>Liga &amp; <span>pool</span></>}</h2></div><span className="count-chip">{activeSection === "rigs" ? <><HardDrive size={13} /> {activeMiners.length} MINER · {activeRacks.length} RAK</> : <><Trophy size={13} /> {league.name.toUpperCase()} · PERINGKAT #{rankEstimate}</>}</span></div>
+          <section className="rigs-layout rigs-layout-single">
+            {activeSection === "rigs" && <div className="rigs-card panel">
               <div className="panel-header"><div><span className="section-label">FARM VIRTUAL</span><h3>Rig yang bekerja</h3></div><span className="active-badge"><i /> MENAMBANG</span></div>
               <div className="rig-grid">
                 {activeMiners.map((miner, index) => {
@@ -327,17 +363,20 @@ export default function HomePage() {
                 })}
               </div>
               <div className="rig-footer"><span><BatteryCharging size={14} /> Grid virtual stabil · 100%</span><span><span className="live-dot" /> SAVE OTOMATIS</span></div>
-            </div>
-            <aside className="league-card panel" id="league">
+            </div>}
+            {activeSection === "league" && <aside className="league-card panel">
               <div className="league-card-head"><div><span className="section-label">TANGGA PERINGKAT</span><h3>Jalur liga</h3></div><span className={`league-emblem emblem-${league.color}`}><Crown size={18} /></span></div>
               <div className={`league-banner league-${league.color}`}><span className="league-small">LIGA SAAT INI</span><strong>{league.name}</strong><span className="league-icon">{leagueIndex + 1 < 3 ? "✦" : "✧"}</span></div>
               <div className="league-progress-label"><span>POWER PERMANEN</span><b>{formatNumber(permanentPower)} TH/s</b></div><div className="league-progress"><span style={{ width: `${progressToLeague}%` }} /></div>
               <p className="league-next">{nextLeague ? <><b>{formatNumber(Math.max(0, nextLeague.minPower - permanentPower))} TH/s</b> lagi ke Liga {nextLeague.name}</> : "Kamu sudah mencapai liga tertinggi!"}</p>
               <div className="league-divider" /><div className="pool-info"><div><span>POOL LIGA / HARI</span><b>{formatNumber(league.dailyPool)} <small>LC</small></b></div><div><span>PORSI POWER-MU</span><b>{formatNumber(poolShare * 100, 2)}<small>%</small></b></div></div>
               <p className="simulation-note"><Activity size={13} /> Pool dan rival dihitung secara simulasi lokal. Power sementara menambah porsi, tetapi tidak menaikkan liga.</p>
-            </aside>
+            </aside>}
           </section>
+          {activeSection === "league" && <section className="rivals-card panel league-rivals-card"><div className="panel-header"><div><span className="section-label">SIMULASI LOKAL</span><h3>Rival satu liga</h3></div><span className="npc-label"><Activity size={12} /> NPC</span></div><p className="rivals-intro">Nama dan power berikut adalah karakter bot lokal—bukan leaderboard pemain sungguhan.</p><div className="rival-list">{RIVALS.map((rival, index) => <div className="rival-row" key={rival.name}><span className="rival-rank">0{index + 1}</span><span className="rival-avatar">{rival.icon}</span><b>{rival.name}</b><span className="rival-power">{formatNumber(Math.max(12, league.rivalPower * rival.offset))} TH/s</span><div className="rival-bar"><span style={{ width: `${Math.min(100, rival.offset * 53)}%` }} /></div></div>)}</div></section>}
+          </section>}
 
+          {activeSection === "racks" && <section className="module-screen">
           <div className="section-heading" id="racks"><div><p className="eyebrow">SEKTOR 03 / INFRASTRUKTUR KUCING</p><h2>Rak server <span>markas</span></h2></div><span className="count-chip"><Server size={13} /> {activeRacks.length} / {SERVER_RACKS.length} JENIS TERPASANG</span></div>
           <section className="rack-room panel">
             <div className="panel-header"><div><span className="section-label"><Server size={13} /> CAT SERVER BAY</span><h3>Rak server yang bekerja</h3></div><span className="active-badge"><i /> {formatNumber(activeRacks.reduce((sum, rack) => sum + rack.power * (save?.rackLevels[rack.id] || 0), 0))} TH/s RAK</span></div>
@@ -355,7 +394,9 @@ export default function HomePage() {
             })}</div> : <div className="rack-empty"><div className="server-rack-art rack-art-empty"><Server size={33} /><span>🐱</span></div><div><b>Bay server masih kosong</b><p>Pasang rak kucing dari pasar di bawah. Setiap rak menambah power permanen dan membantu naik liga.</p></div></div>}
             <div className="rig-footer"><span><BatteryCharging size={14} /> Semua rak virtual · tidak memakai CPU untuk mining</span><span><span className="live-dot" /> SAVE OTOMATIS</span></div>
           </section>
+          </section>}
 
+          {activeSection === "market" && <section className="module-screen">
           <section className="market-section" id="market">
             <div className="section-heading"><div><p className="eyebrow">SEKTOR 04 / PERDAGANGAN LOKAL</p><h2>Pasar rig &amp; rak <span>virtual</span></h2></div><span className="market-note"><LockKeyhole size={13} /> TANPA UANG ASLI</span></div>
             <div className="market-grid">
@@ -390,24 +431,19 @@ export default function HomePage() {
               })}
             </div>
           </section>
+          </section>}
 
-          <div className="lower-grid">
-            <section className="rivals-card panel">
-              <div className="panel-header"><div><span className="section-label">SIMULASI LOKAL</span><h3>Rival satu liga</h3></div><span className="npc-label"><Activity size={12} /> NPC</span></div>
-              <p className="rivals-intro">Nama dan power berikut adalah karakter bot lokal—bukan leaderboard pemain sungguhan.</p>
-              <div className="rival-list">
-                {RIVALS.map((rival, index) => <div className="rival-row" key={rival.name}><span className="rival-rank">0{index + 1}</span><span className="rival-avatar">{rival.icon}</span><b>{rival.name}</b><span className="rival-power">{formatNumber(Math.max(12, league.rivalPower * rival.offset))} TH/s</span><div className="rival-bar"><span style={{ width: `${Math.min(100, rival.offset * 53)}%` }} /></div></div>)}
-              </div>
-            </section>
-            <section className="wallet-card panel" id="wallet">
-              <div className="panel-header"><div><span className="section-label">PENYIMPANAN PERANGKAT</span><h3>Dompet virtual</h3></div><span className="wallet-lock"><LockKeyhole size={14} /></span></div>
+          {activeSection === "wallet" && <section className="module-screen">
+            <div className="section-heading" id="wallet"><div><p className="eyebrow">MODUL 07 / PENYIMPANAN LOKAL</p><h2>Dompet <span>virtual</span></h2></div><span className="market-note"><LockKeyhole size={13} /> SAVE PERANGKAT INI</span></div>
+            <section className="wallet-card panel wallet-screen-card">
+              <div className="panel-header"><div><span className="section-label">PENYIMPANAN PERANGKAT</span><h3>Saldo dan aktivitas</h3></div><span className="wallet-lock"><LockKeyhole size={14} /></span></div>
               <div className="wallet-balance"><span>SALDO LEGIONCOIN</span><strong>{formatNumber(save?.balance || 0, 2)} <small>LC</small></strong><span className="wallet-hint"><span className="tiny-dot gold-dot" /> Token game lokal · bukan aset kripto</span></div>
               <div className="wallet-actions"><button disabled title="Game ini offline dan tidak memiliki penarikan"><ArrowUpRight size={14} /> Kirim <small>Nonaktif</small></button><button disabled title="Game ini offline dan tidak memiliki penarikan"><ArrowDownLeft size={14} /> Tarik <small>Nonaktif</small></button></div>
               <div className="history-head"><span>AKTIVITAS TERBARU</span><span>LOKAL</span></div>
               <div className="activity-list">{(save?.activity || []).slice(0, 4).map((item) => <div className="activity-row" key={item.id}><span className={`activity-icon activity-${item.kind}`}>{item.kind === "purchase" || item.kind === "upgrade" ? <ShoppingBag size={13} /> : item.kind === "boost" ? <Zap size={13} /> : item.kind === "arcade" ? <Gamepad2 size={13} /> : <Sparkles size={13} />}</span><span className="activity-copy"><b>{item.title}</b><small>{item.detail}</small></span><span className={`activity-amount ${(item.amount || 0) < 0 ? "negative" : ""}`}>{typeof item.amount === "number" ? `${item.amount > 0 ? "+" : ""}${formatNumber(item.amount, item.amount % 1 ? 2 : 0)}` : "—"}</span></div>)}</div>
               <p className="private-note"><ShieldCheck size={13} /> {storageAvailable ? "Save tersimpan di browser ini. Hapus data situs = progres terhapus." : "Save browser tidak tersedia; jangan tutup halaman jika ingin mempertahankan sesi ini."}</p>
             </section>
-          </div>
+          </section>}
 
           <footer className="game-footer"><span><Cat size={14} /> LEGIONCOIN — GAME SIMULASI OFFLINE</span><span><CircleHelp size={13} /> Tidak memakai CPU untuk mining · Tidak ada nilai tukar riil</span></footer>
         </div>

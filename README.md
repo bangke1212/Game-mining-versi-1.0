@@ -4,6 +4,10 @@ LegionCoin adalah game browser offline dengan loop mining yang **sepenuhnya simu
 
 > Tidak ada penambangan kripto sungguhan, blockchain, dompet eksternal, nilai tukar, deposit, atau penarikan. Semua LC, power, liga, pool, dan rival adalah data game lokal.
 
+## Susunan dashboard
+
+Markas menampilkan ringkasan dan pintasan. Arcade, Ruang Miner, Rak Server, Liga & Pool, Pasar Rig & Rak, serta Dompet Virtual masing-masing dibuka sebagai layar terpisah melalui menu samping atau pintasan Markas; memilih modul tidak lagi hanya menggulir halaman panjang yang sama.
+
 ## Mekanisme game
 
 - **Rig mining:** tingkatkan rig langsung dari ruang kerja atau pasar. Tiap level menambah power permanen dan harganya meningkat; level maksimum 99.
