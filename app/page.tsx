@@ -5,22 +5,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity, ArrowDownLeft, ArrowUpRight, BatteryCharging, Cat, Check, ChevronRight,
   CircleHelp, Clock3, Coins, Cpu, Crown, Gamepad2, Gem, HardDrive, Home, LockKeyhole,
-  Menu, Pickaxe, RotateCcw, ShieldCheck, ShoppingBag, Sparkles, Star, Trophy, WifiOff, X, Zap,
+  Menu, Pickaxe, RotateCcw, Server, ShieldCheck, ShoppingBag, Sparkles, Trophy, WifiOff, Zap,
 } from "lucide-react";
 import {
-  addTemporaryPower, buyOrUpgradeMiner, createInitialSave, GameSave, getActiveTemporaryPower,
-  getHourlyReward, getLeague, getPermanentPower, getPlayerShare, MINERS, normalizeSave,
-  SAVE_KEY, settleOffline,
+  addTemporaryPower, ArcadeMode, buyOrUpgradeMiner, buyOrUpgradeRack, createInitialSave,
+  GameSave, getActiveTemporaryPower, getArcadeRewardEstimate, getHourlyReward, getLeague,
+  getPermanentPower, getPlayerShare, getUpgradeCost, getUtcDayKey, grantArcadeReward,
+  MAX_ARCADE_REWARD_PER_DAY, MAX_ITEM_LEVEL, MIN_PAW_RUSH_BOOST_SCORE, MINERS,
+  normalizeSave, SAVE_KEY, SERVER_RACKS, settleOffline,
 } from "@/lib/legioncoin";
+import ArcadeHub from "./arcade-hub";
 
 const formatNumber = (value: number, digits = 0) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value);
-const formatClock = (seconds: number) => `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
-const formatDuration = (milliseconds: number) => {
-  if (milliseconds <= 0) return "Kedaluwarsa";
-  const hours = Math.ceil(milliseconds / 3_600_000);
-  const days = Math.floor(hours / 24);
-  return days > 0 ? `${days} hari ${hours % 24} jam` : `${hours} jam`;
-};
 
 const RIVALS = [
   { name: "MochiMancer", icon: "🐈", offset: 1.32 },
@@ -34,16 +30,12 @@ export default function HomePage() {
   const [toast, setToast] = useState("");
   const [now, setNow] = useState(Date.now());
   const [menuOpen, setMenuOpen] = useState(false);
-  const [gameOpen, setGameOpen] = useState(false);
-  const [gameSeconds, setGameSeconds] = useState(12);
-  const [gameScore, setGameScore] = useState(0);
-  const [pawPosition, setPawPosition] = useState({ left: 46, top: 46 });
   const [activeSection, setActiveSection] = useState("dashboard");
   const [offlineReady, setOfflineReady] = useState(false);
+  const [storageAvailable, setStorageAvailable] = useState(true);
   const saveRef = useRef<GameSave | null>(null);
   const toastTimerRef = useRef<number | null>(null);
-  const scoreRef = useRef(0);
-  const finishedRef = useRef(false);
+  const storageWarningShownRef = useRef(false);
 
   const notify = useCallback((message: string) => {
     if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
@@ -51,27 +43,55 @@ export default function HomePage() {
     toastTimerRef.current = window.setTimeout(() => setToast(""), 2600);
   }, []);
 
-  useEffect(() => {
-    let next: GameSave;
-    try {
-      const stored = localStorage.getItem(SAVE_KEY);
-      const loaded = stored ? normalizeSave(JSON.parse(stored), Date.now()) : createInitialSave(Date.now());
-      next = settleOffline(loaded, Date.now());
-    } catch {
-      next = createInitialSave(Date.now());
-      notify("Save lokal tidak terbaca; petualangan baru dimulai.");
-    }
-    saveRef.current = next;
-    setSave(next);
-    localStorage.setItem(SAVE_KEY, JSON.stringify(next));
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").then(() => navigator.serviceWorker.ready).then(() => setOfflineReady(true)).catch(() => setOfflineReady(false));
-    }
+  const warnStorageUnavailable = useCallback(() => {
+    setStorageAvailable(false);
+    if (storageWarningShownRef.current) return;
+    storageWarningShownRef.current = true;
+    notify("Penyimpanan browser tidak tersedia; progres hanya bertahan selama halaman terbuka.");
   }, [notify]);
 
   useEffect(() => {
-    if (save) localStorage.setItem(SAVE_KEY, JSON.stringify(save));
-  }, [save]);
+    let next: GameSave;
+    let canPersist = true;
+    try {
+      const stored = localStorage.getItem(SAVE_KEY);
+      let loaded: GameSave;
+      try {
+        loaded = stored ? normalizeSave(JSON.parse(stored), Date.now()) : createInitialSave(Date.now());
+      } catch {
+        loaded = createInitialSave(Date.now());
+        notify("Save lokal tidak terbaca; petualangan baru dimulai.");
+      }
+      next = settleOffline(loaded, Date.now());
+    } catch {
+      next = createInitialSave(Date.now());
+      canPersist = false;
+      warnStorageUnavailable();
+    }
+    saveRef.current = next;
+    setSave(next);
+    if (canPersist) {
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify(next));
+      } catch {
+        canPersist = false;
+        warnStorageUnavailable();
+      }
+    }
+    setStorageAvailable(canPersist);
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").then(() => navigator.serviceWorker.ready).then(() => setOfflineReady(true)).catch(() => setOfflineReady(false));
+    }
+  }, [notify, warnStorageUnavailable]);
+
+  useEffect(() => {
+    if (!save || !storageAvailable) return;
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+    } catch {
+      warnStorageUnavailable();
+    }
+  }, [save, storageAvailable, warnStorageUnavailable]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -87,37 +107,8 @@ export default function HomePage() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const finishMiniGame = useCallback(() => {
-    if (finishedRef.current) return;
-    finishedRef.current = true;
-    const finalScore = scoreRef.current;
-    setGameOpen(false);
-    const current = saveRef.current;
-    if (current) {
-      const next = addTemporaryPower(current, finalScore, Date.now());
-      saveRef.current = next;
-      setSave(next);
-    }
-    notify(`Paw Rush selesai! Power sementara +${Math.max(8, Math.round(8 + Math.min(100, finalScore) * 2.4))} TH/s`);
-  }, [notify]);
-
   useEffect(() => {
-    if (!gameOpen) return;
-    const timer = window.setInterval(() => {
-      setGameSeconds((seconds) => {
-        if (seconds <= 1) {
-          window.clearInterval(timer);
-          finishMiniGame();
-          return 0;
-        }
-        return seconds - 1;
-      });
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [gameOpen, finishMiniGame]);
-
-  useEffect(() => {
-    const sections = ["dashboard", "rigs", "league", "market", "wallet"];
+    const sections = ["dashboard", "arcade", "rigs", "racks", "league", "market", "wallet"];
     const observer = new IntersectionObserver((entries) => {
       const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
       if (visible) setActiveSection(visible.target.id);
@@ -135,6 +126,8 @@ export default function HomePage() {
   const poolShare = getPlayerShare(totalPower, leagueIndex);
   const progressToLeague = nextLeague ? Math.min(100, ((permanentPower - league.minPower) / (nextLeague.minPower - league.minPower)) * 100) : 100;
   const activeMiners = useMemo(() => MINERS.filter((miner) => (save?.minerLevels[miner.id] || 0) > 0), [save]);
+  const activeRacks = useMemo(() => SERVER_RACKS.filter((rack) => (save?.rackLevels[rack.id] || 0) > 0), [save]);
+  const arcadeEarnedToday = save?.arcadeRewardDay === getUtcDayKey(now) ? save.arcadeCoinsToday : 0;
   const rankEstimate = Math.max(1, Math.min(99, Math.round(4 + (1 - poolShare) * 18)));
 
   function runAction(action: (current: GameSave, time: number) => GameSave, success: string) {
@@ -150,36 +143,48 @@ export default function HomePage() {
     }
   }
 
-  function startMiniGame() {
-    scoreRef.current = 0;
-    finishedRef.current = false;
-    setGameScore(0);
-    setGameSeconds(12);
-    setPawPosition({ left: 46, top: 46 });
-    setGameOpen(true);
-  }
-
-  function tapPaw() {
-    if (!gameOpen) return;
-    scoreRef.current += 1;
-    setGameScore(scoreRef.current);
-    setPawPosition({ left: 7 + Math.random() * 76, top: 12 + Math.random() * 62 });
-  }
+  const completeArcade = useCallback((mode: ArcadeMode, score: number) => {
+    const current = saveRef.current;
+    if (!current) return;
+    const stamp = Date.now();
+    const gameNames: Record<ArcadeMode, string> = {
+      "paw-rush": "Paw Rush",
+      "coin-catch": "Bit Catch",
+      "memory-mine": "Memory Mine",
+    };
+    const boostEarned = mode === "paw-rush" && score >= MIN_PAW_RUSH_BOOST_SCORE;
+    let next = boostEarned ? addTemporaryPower(current, score, stamp) : current;
+    const powerGained = boostEarned ? Math.max(8, Math.round(8 + Math.max(0, Math.min(100, Math.floor(score))) * 2.4)) : 0;
+    const result = grantArcadeReward(next, gameNames[mode], getArcadeRewardEstimate(mode, score), stamp);
+    next = result.save;
+    saveRef.current = next;
+    setSave(next);
+    const powerNote = powerGained ? ` · +${formatNumber(powerGained)} TH/s temporer` : mode === "paw-rush" ? ` · boost mulai ${MIN_PAW_RUSH_BOOST_SCORE} tangkapan` : "";
+    const capNote = result.remainingToday === 0 && getArcadeRewardEstimate(mode, score) > result.earned ? " · batas harian tercapai" : "";
+    notify(`${gameNames[mode]} selesai: +${formatNumber(result.earned, 2)} LC${powerNote}${capNote}`);
+  }, [notify]);
 
   function resetSave() {
     if (!window.confirm("Hapus save LegionCoin di perangkat ini dan mulai dari awal?")) return;
     const fresh = createInitialSave(Date.now());
     saveRef.current = fresh;
     setSave(fresh);
-    localStorage.setItem(SAVE_KEY, JSON.stringify(fresh));
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(fresh));
+      setStorageAvailable(true);
+    } catch {
+      warnStorageUnavailable();
+    }
     notify("Save lokal direset.");
   }
 
   const navItems = [
     { id: "dashboard", label: "Markas", icon: Home },
+    { id: "arcade", label: "Arcade", icon: Gamepad2 },
     { id: "rigs", label: "Ruang Miner", icon: Cpu },
+    { id: "racks", label: "Rak Server", icon: Server },
     { id: "league", label: "Liga & Pool", icon: Trophy },
-    { id: "market", label: "Pasar Miner", icon: ShoppingBag },
+    { id: "market", label: "Pasar Rig & Rak", icon: ShoppingBag },
     { id: "wallet", label: "Dompet Virtual", icon: Coins },
   ];
 
@@ -205,7 +210,7 @@ export default function HomePage() {
           <span><i /> SISTEM VIRTUAL AKTIF</span>
         </div>
         <div className="side-bottom">
-          <div className="offline-note"><WifiOff size={14} /><span>MODE OFFLINE<br /><b>{offlineReady ? "SIAP DIMAINKAN" : "SAVE DI PERANGKAT"}</b></span></div>
+          <div className="offline-note"><WifiOff size={14} /><span>MODE OFFLINE<br /><b>{!storageAvailable ? "SAVE TIDAK TERSEDIA" : offlineReady ? "SIAP DIMAINKAN" : "SAVE DI PERANGKAT"}</b></span></div>
           <button className="reset-link" onClick={resetSave}><RotateCcw size={13} /> Reset save lokal</button>
           <small>LEGIONCOIN · BUILD 1.0</small>
         </div>
@@ -220,7 +225,7 @@ export default function HomePage() {
             <div className="crumb"><span>LEGION OUTPOST</span><ChevronRight size={13} /><b>RUANG TAMBANG</b></div>
           </div>
           <div className="topbar-right">
-            <span className="save-pill"><span className="save-dot" /> {offlineReady ? "TERSIMPAN · OFFLINE READY" : "SAVE LOKAL AKTIF"}</span>
+            <span className="save-pill"><span className="save-dot" /> {!storageAvailable ? "PROGRES SESI SAJA" : offlineReady ? "TERSIMPAN · OFFLINE READY" : "SAVE LOKAL AKTIF"}</span>
             <div className="player-chip"><span className="player-initial">{save?.playerName.slice(0, 1) || "P"}</span><span><b>{save?.playerName || "Penjelajah Paw"}</b><small>MINER · LEVEL {Math.max(1, Math.floor((save?.xp || 0) / 250) + 1)}</small></span></div>
           </div>
         </header>
@@ -229,22 +234,24 @@ export default function HomePage() {
           <section id="dashboard" className="welcome-row">
             <div><p className="eyebrow"><span className="eyebrow-star">✦</span> SELAMAT DATANG DI LEGION OUTPOST</p><h1>Tambang virtual.<br /><em>Petualangan nyata.</em></h1><p className="welcome-copy">Mainkan mini-game, kumpulkan power, dan naiki liga bersama kru kucingmu.</p></div>
             <div className="mascot-hero"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><span className="hero-glow" /><Image src="/images/legion-cat-mascot-512.png" width={300} height={300} alt="Kucing penambang LegionCoin" priority /><span className="mascot-caption"><Sparkles size={13} /> KAPTEN PAW</span></div>
-            <div className="offline-banner"><ShieldCheck size={17} /><span><b>SEMUA VIRTUAL, SEMUA MILIK SAVE LOKAL</b><small>Tidak ada crypto sungguhan, akun online, atau transaksi jaringan.</small></span><LockKeyhole size={15} className="banner-lock" /></div>
+            <div className="offline-banner"><ShieldCheck size={17} /><span><b>{storageAvailable ? "SEMUA VIRTUAL, SEMUA MILIK SAVE LOKAL" : "PENYIMPANAN BROWSER TIDAK TERSEDIA"}</b><small>{storageAvailable ? "Tidak ada crypto sungguhan, akun online, atau transaksi jaringan." : "Progres hanya tersimpan selama halaman ini tetap terbuka."}</small></span><LockKeyhole size={15} className="banner-lock" /></div>
           </section>
 
           <section className="stats-row" aria-label="Statistik permainan">
-            <article className="stat-card wallet-stat"><div className="stat-top"><span>SALDO DOMPET</span><Coins size={16} /></div><strong>{formatNumber(save?.balance || 0, 2)} <small>LC</small></strong><p><span className="tiny-dot gold-dot" /> LegionCoin virtual</p><div className="stat-line"><span>DISIMPAN DI BROWSER</span><LockKeyhole size={12} /></div></article>
+            <article className="stat-card wallet-stat"><div className="stat-top"><span>SALDO DOMPET</span><Coins size={16} /></div><strong>{formatNumber(save?.balance || 0, 2)} <small>LC</small></strong><p><span className="tiny-dot gold-dot" /> LegionCoin virtual</p><div className="stat-line"><span>{storageAvailable ? "DISIMPAN DI BROWSER" : "HANYA SESI INI"}</span><LockKeyhole size={12} /></div></article>
             <article className="stat-card power-stat"><div className="stat-top"><span>MINING POWER</span><Zap size={16} /></div><strong>{formatNumber(totalPower)} <small>TH/s</small></strong><p><span className="tiny-dot green-dot" /> {formatNumber(permanentPower)} permanen {temporaryPower > 0 ? `· +${formatNumber(temporaryPower)} sementara` : "· rig aktif"}</p><div className="stat-line"><span>POWER SEMENTARA {temporaryPower > 0 ? "AKTIF" : "SIAP DIISI"}</span><Activity size={12} /></div></article>
             <article className="stat-card yield-stat"><div className="stat-top"><span>ESTIMASI HADIAH</span><Gem size={16} /></div><strong>{formatNumber(dailyReward, 2)} <small>LC / hari</small></strong><p><span className="tiny-dot blue-dot" /> Bagi hasil pool liga simulasi</p><div className="stat-line"><span>MAKS. PROGRES OFFLINE 24 JAM</span><Clock3 size={12} /></div></article>
             <article className="stat-card league-stat"><div className="stat-top"><span>LIGA SAAT INI</span><Trophy size={16} /></div><strong>{league.name}<small> · #{rankEstimate}</small></strong><p><span className="tiny-dot orange-dot" /> Peringkat dari power permanen</p><div className="stat-line"><span>{nextLeague ? `${formatNumber(Math.max(0, nextLeague.minPower - permanentPower))} TH/s KE LIGA ${nextLeague.name.toUpperCase()}` : "PUNCAK LIGA TERCAPAI"}</span><ChevronRight size={12} /></div></article>
           </section>
 
-          <section className="play-panel panel" aria-label="Paw Rush mini-game">
-            <div className="play-copy"><div className="section-label"><Gamepad2 size={14} /> MINI-GAME / 01</div><h2>Kejar Paw <span>Rush!</span></h2><p>Tangkap paw bercahaya sebanyak mungkin dalam 12 detik. Skormu mengubah power sementara yang ikut membagi hadiah selama 7 hari.</p><button className="primary-button" onClick={startMiniGame}><Gamepad2 size={16} /> Mainkan Paw Rush <ChevronRight size={15} /></button><div className="game-reward"><Zap size={13} /><span>POWER TEMPORER BISA MENUMPUK · MAKSIMALKAN SKOR</span></div></div>
+          <section className="play-panel panel" aria-label="Terminal arcade LegionCoin">
+            <div className="play-copy"><div className="section-label"><Gamepad2 size={14} /> TERMINAL ARCADE / BONUS VIRTUAL</div><h2>Jeda sebentar.<br /><span>Tambang lebih pintar.</span></h2><p>Mainkan tantangan arcade singkat untuk bonus LC virtual. Paw Rush juga memberi power sementara; Bit Catch dan Memory Mine menambah variasi skor.</p><a className="primary-button" href="#arcade"><Gamepad2 size={16} /> Buka terminal arcade <ChevronRight size={15} /></a><div className="game-reward"><Coins size={13} /><span>HADIAH LC LOKAL · MAKS. {MAX_ARCADE_REWARD_PER_DAY} LC ARCADE / HARI</span></div></div>
             <div className="play-art"><div className="game-sun" /><div className="pixel-cloud cloud-a" /><div className="pixel-cloud cloud-b" /><div className="mine-hill hill-back" /><div className="mine-hill hill-front" /><div className="ore ore-one">✦</div><div className="ore ore-two">✦</div><div className="play-cat"><Image src="/images/legion-cat-mascot-512.png" width={184} height={184} alt="" /></div><span className="floating-paw">✦</span><span className="art-tag"><Pickaxe size={12} /> PAW POWER, LET&apos;S GO!</span></div>
           </section>
 
-          <div className="section-heading" id="rigs"><div><p className="eyebrow">SEKTOR 01 / RUANG KERJA</p><h2>Ruang miner <span>kamu</span></h2></div><span className="count-chip"><HardDrive size={13} /> {activeMiners.length} / {MINERS.length} MINER AKTIF</span></div>
+          <ArcadeHub dailyEarned={arcadeEarnedToday} dailyLimit={MAX_ARCADE_REWARD_PER_DAY} onComplete={completeArcade} />
+
+          <div className="section-heading" id="rigs"><div><p className="eyebrow">SEKTOR 02 / RUANG KERJA</p><h2>Rig mining <span>kamu</span></h2></div><span className="count-chip"><HardDrive size={13} /> {activeMiners.length} MINER · {activeRacks.length} RAK</span></div>
           <section className="rigs-layout">
             <div className="rigs-card panel">
               <div className="panel-header"><div><span className="section-label">FARM VIRTUAL</span><h3>Rig yang bekerja</h3></div><span className="active-badge"><i /> MENAMBANG</span></div>
@@ -252,9 +259,11 @@ export default function HomePage() {
                 {activeMiners.map((miner, index) => {
                   const level = save?.minerLevels[miner.id] || 1;
                   const isStarter = miner.id === "starter-cat";
+                  const upgradePrice = getUpgradeCost(miner.id, level);
                   return <article className={`rig-tile ${isStarter ? "rig-featured" : ""}`} key={miner.id}>
                     <div className="rig-tile-top"><div className={`miner-glyph miner-glyph-${index}`}><Image src="/images/legion-cat-mascot-512.png" width={74} height={74} alt="" /></div><span className="rig-level">LV.{String(level).padStart(2, "0")}</span></div>
                     <h4>{miner.name}</h4><p>{miner.label}</p><div className="rig-power"><Zap size={14} /> {formatNumber(miner.power * level)} <small>TH/s</small></div><div className="rig-meter"><span style={{ width: `${36 + ((now / 1000 + index * 17) % 58)}%` }} /></div><div className="rig-tile-foot"><span><i /> ONLINE</span><span>#{String(index + 1).padStart(2, "0")}</span></div>
+                    <button className="rig-upgrade-action" disabled={!save || save.balance < upgradePrice || level >= MAX_ITEM_LEVEL} onClick={() => runAction((current, time) => buyOrUpgradeMiner(current, miner.id, time), `${miner.name} ditingkatkan!`)}><Zap size={12} /> {level >= MAX_ITEM_LEVEL ? "LEVEL MAKS" : `UPGRADE · ${formatNumber(upgradePrice)} LC`}</button>
                   </article>;
                 })}
               </div>
@@ -270,16 +279,45 @@ export default function HomePage() {
             </aside>
           </section>
 
+          <div className="section-heading" id="racks"><div><p className="eyebrow">SEKTOR 03 / INFRASTRUKTUR KUCING</p><h2>Rak server <span>markas</span></h2></div><span className="count-chip"><Server size={13} /> {activeRacks.length} / {SERVER_RACKS.length} JENIS TERPASANG</span></div>
+          <section className="rack-room panel">
+            <div className="panel-header"><div><span className="section-label"><Server size={13} /> CAT SERVER BAY</span><h3>Rak server yang bekerja</h3></div><span className="active-badge"><i /> {formatNumber(activeRacks.reduce((sum, rack) => sum + rack.power * (save?.rackLevels[rack.id] || 0), 0))} TH/s RAK</span></div>
+            {activeRacks.length > 0 ? <div className="server-rack-grid">{activeRacks.map((rack, index) => {
+              const level = save?.rackLevels[rack.id] || 1;
+              const upgradePrice = getUpgradeCost(rack.id, level);
+              const atMaxLevel = level >= MAX_ITEM_LEVEL;
+              return <article className="server-rack-tile" key={rack.id}>
+                <div className={`server-rack-art rack-art-${index}`}><Server size={31} /><span>🐈</span></div>
+                <div className="server-rack-info"><div className="server-rack-title"><div><span className="item-type">{rack.label.toUpperCase()}</span><h4>{rack.name}</h4></div><span className="rig-level">LV.{String(level).padStart(2, "0")}</span></div><p>{rack.description}</p><div className="server-rack-stats"><span><Zap size={13} /> {formatNumber(rack.power * level)} TH/s</span><span><i /> ONLINE</span></div><button className="rig-upgrade-action" disabled={!save || save.balance < upgradePrice || atMaxLevel} onClick={() => runAction((current, time) => buyOrUpgradeRack(current, rack.id, time), `${rack.name} di-upgrade!`)}><Zap size={12} /> {atMaxLevel ? "LEVEL MAKS" : `UPGRADE RAK · ${formatNumber(upgradePrice)} LC`}</button></div>
+              </article>;
+            })}</div> : <div className="rack-empty"><div className="server-rack-art rack-art-empty"><Server size={33} /><span>🐱</span></div><div><b>Bay server masih kosong</b><p>Pasang rak kucing dari pasar di bawah. Setiap rak menambah power permanen dan membantu naik liga.</p></div></div>}
+            <div className="rig-footer"><span><BatteryCharging size={14} /> Semua rak virtual · tidak memakai CPU untuk mining</span><span><span className="live-dot" /> SAVE OTOMATIS</span></div>
+          </section>
+
           <section className="market-section" id="market">
-            <div className="section-heading"><div><p className="eyebrow">SEKTOR 02 / PERDAGANGAN LOKAL</p><h2>Pasar miner <span>virtual</span></h2></div><span className="market-note"><LockKeyhole size={13} /> TANPA UANG ASLI</span></div>
+            <div className="section-heading"><div><p className="eyebrow">SEKTOR 04 / PERDAGANGAN LOKAL</p><h2>Pasar rig &amp; rak <span>virtual</span></h2></div><span className="market-note"><LockKeyhole size={13} /> TANPA UANG ASLI</span></div>
             <div className="market-grid">
               {MINERS.filter((miner) => miner.id !== "starter-cat").map((miner, index) => {
                 const level = save?.minerLevels[miner.id] || 0;
                 const owned = level > 0;
-                const price = owned ? Math.max(45, Math.round(miner.price * (0.72 + level * 0.62))) : miner.price;
+                const price = owned ? getUpgradeCost(miner.id, level) : miner.price;
+                const atMaxLevel = level >= MAX_ITEM_LEVEL;
                 return <article className={`market-card panel ${owned ? "market-owned" : ""}`} key={miner.id}>
                   <div className={`market-art market-art-${index}`}><div className="market-ring" /><Image src="/images/legion-cat-mascot-512.png" width={102} height={102} alt="" /><span className="market-power"><Zap size={12} /> +{miner.power * (owned ? level + 1 : 1)} TH/s</span></div>
-                  <div className="market-card-body"><span className="item-type">{miner.label.toUpperCase()}</span><h3>{miner.name}</h3><p>{miner.description}</p><div className="market-bottom"><span className="item-price"><Coins size={15} /> {formatNumber(price)} <small>LC</small></span><button className={`buy-button ${owned ? "upgrade-button" : ""}`} disabled={!save || save.balance < price} onClick={() => runAction((current, time) => buyOrUpgradeMiner(current, miner.id, time), owned ? "Miner ditingkatkan!" : "Miner baru aktif!")}>{owned ? "TINGKATKAN" : "BELI MINER"}<ChevronRight size={14} /></button></div>{owned && <span className="owned-caption"><Check size={11} /> TERPASANG · LEVEL {level}</span>}</div>
+                  <div className="market-card-body"><span className="item-type">{miner.label.toUpperCase()}</span><h3>{miner.name}</h3><p>{miner.description}</p><div className="market-bottom"><span className="item-price">{atMaxLevel ? <span>LEVEL MAKS</span> : <><Coins size={15} /> {formatNumber(price)} <small>LC</small></>}</span><button className={`buy-button ${owned ? "upgrade-button" : ""}`} disabled={!save || save.balance < price || atMaxLevel} onClick={() => runAction((current, time) => buyOrUpgradeMiner(current, miner.id, time), owned ? "Miner ditingkatkan!" : "Miner baru aktif!")}>{atMaxLevel ? "LEVEL MAKS" : owned ? "TINGKATKAN" : "BELI MINER"}{!atMaxLevel && <ChevronRight size={14} />}</button></div>{owned && <span className="owned-caption"><Check size={11} /> TERPASANG · LEVEL {level}/{MAX_ITEM_LEVEL}</span>}</div>
+                </article>;
+              })}
+            </div>
+            <div className="market-subheading"><div><span className="section-label"><Server size={13} /> INFRASTRUKTUR SERVER</span><h3>Rak server kucing</h3></div><span>POWER PERMANEN · LEVEL MAKS. {MAX_ITEM_LEVEL}</span></div>
+            <div className="market-grid rack-market-grid">
+              {SERVER_RACKS.map((rack, index) => {
+                const level = save?.rackLevels[rack.id] || 0;
+                const owned = level > 0;
+                const price = owned ? getUpgradeCost(rack.id, level) : rack.price;
+                const atMaxLevel = level >= MAX_ITEM_LEVEL;
+                return <article className={`market-card panel ${owned ? "market-owned" : ""}`} key={rack.id}>
+                  <div className={`market-art rack-market-art market-art-${index}`}><div className="market-ring" /><div className="rack-market-icon"><Server size={43} /><span>🐈</span></div><span className="market-power"><Zap size={12} /> +{formatNumber(rack.power)} TH/s / level</span></div>
+                  <div className="market-card-body"><span className="item-type">{rack.label.toUpperCase()}</span><h3>{rack.name}</h3><p>{rack.description}</p><div className="market-bottom"><span className="item-price">{atMaxLevel ? <span>LEVEL MAKS</span> : <><Coins size={15} /> {formatNumber(price)} <small>LC</small></>}</span><button className={`buy-button ${owned ? "upgrade-button" : ""}`} disabled={!save || save.balance < price || atMaxLevel} onClick={() => runAction((current, time) => buyOrUpgradeRack(current, rack.id, time), owned ? "Rak server di-upgrade!" : "Rak server kucing terpasang!")}>{atMaxLevel ? "LEVEL MAKS" : owned ? "UPGRADE RAK" : "BELI RAK"}{!atMaxLevel && <ChevronRight size={14} />}</button></div>{owned && <span className="owned-caption"><Check size={11} /> TERPASANG · LEVEL {level}/{MAX_ITEM_LEVEL}</span>}</div>
                 </article>;
               })}
             </div>
@@ -298,16 +336,14 @@ export default function HomePage() {
               <div className="wallet-balance"><span>SALDO LEGIONCOIN</span><strong>{formatNumber(save?.balance || 0, 2)} <small>LC</small></strong><span className="wallet-hint"><span className="tiny-dot gold-dot" /> Token game lokal · bukan aset kripto</span></div>
               <div className="wallet-actions"><button disabled title="Game ini offline dan tidak memiliki penarikan"><ArrowUpRight size={14} /> Kirim <small>Nonaktif</small></button><button disabled title="Game ini offline dan tidak memiliki penarikan"><ArrowDownLeft size={14} /> Tarik <small>Nonaktif</small></button></div>
               <div className="history-head"><span>AKTIVITAS TERBARU</span><span>LOKAL</span></div>
-              <div className="activity-list">{(save?.activity || []).slice(0, 4).map((item) => <div className="activity-row" key={item.id}><span className={`activity-icon activity-${item.kind}`}>{item.kind === "purchase" || item.kind === "upgrade" ? <ShoppingBag size={13} /> : item.kind === "boost" ? <Zap size={13} /> : <Sparkles size={13} />}</span><span className="activity-copy"><b>{item.title}</b><small>{item.detail}</small></span><span className={`activity-amount ${(item.amount || 0) < 0 ? "negative" : ""}`}>{typeof item.amount === "number" ? `${item.amount > 0 ? "+" : ""}${formatNumber(item.amount, item.amount % 1 ? 2 : 0)}` : "—"}</span></div>)}</div>
-              <p className="private-note"><ShieldCheck size={13} /> Save tersimpan di browser ini. Hapus data situs = progres terhapus.</p>
+              <div className="activity-list">{(save?.activity || []).slice(0, 4).map((item) => <div className="activity-row" key={item.id}><span className={`activity-icon activity-${item.kind}`}>{item.kind === "purchase" || item.kind === "upgrade" ? <ShoppingBag size={13} /> : item.kind === "boost" ? <Zap size={13} /> : item.kind === "arcade" ? <Gamepad2 size={13} /> : <Sparkles size={13} />}</span><span className="activity-copy"><b>{item.title}</b><small>{item.detail}</small></span><span className={`activity-amount ${(item.amount || 0) < 0 ? "negative" : ""}`}>{typeof item.amount === "number" ? `${item.amount > 0 ? "+" : ""}${formatNumber(item.amount, item.amount % 1 ? 2 : 0)}` : "—"}</span></div>)}</div>
+              <p className="private-note"><ShieldCheck size={13} /> {storageAvailable ? "Save tersimpan di browser ini. Hapus data situs = progres terhapus." : "Save browser tidak tersedia; jangan tutup halaman jika ingin mempertahankan sesi ini."}</p>
             </section>
           </div>
 
           <footer className="game-footer"><span><Cat size={14} /> LEGIONCOIN — GAME SIMULASI OFFLINE</span><span><CircleHelp size={13} /> Tidak memakai CPU untuk mining · Tidak ada nilai tukar riil</span></footer>
         </div>
       </section>
-
-      {gameOpen && <div className="modal-backdrop" role="presentation"><section className="minigame-modal" role="dialog" aria-modal="true" aria-labelledby="minigame-title"><header className="modal-head"><div><span className="section-label"><Gamepad2 size={13} /> TANTANGAN POWER / 12 DETIK</span><h2 id="minigame-title">Paw Rush!</h2></div><button className="modal-close" onClick={finishMiniGame} aria-label="Akhiri tantangan"><X size={19} /></button></header><div className="game-scorebar"><span><Star size={15} /> SKOR <b>{gameScore}</b></span><span className="timer-chip"><Clock3 size={14} /> {formatClock(gameSeconds)}</span></div><div className="paw-arena"><div className="arena-stars">✦　·　✧　·　✦</div><p>TANGKAP PAW YANG MENYALA!</p><button className="paw-target" style={{ left: `${pawPosition.left}%`, top: `${pawPosition.top}%` }} onClick={tapPaw} aria-label="Tangkap paw bercahaya">🐾</button><div className="arena-hint">Setiap tangkapan menaikkan skor power-mu</div></div><div className="modal-footer"><span>POWER SEMENTARA BERTAHAN 7 HARI</span><b>+{Math.max(8, Math.round(8 + gameScore * 2.4))} TH/s <small>ESTIMASI</small></b></div></section></div>}
 
       {toast && <div className="toast" role="status"><Sparkles size={15} /> {toast}</div>}
     </main>
