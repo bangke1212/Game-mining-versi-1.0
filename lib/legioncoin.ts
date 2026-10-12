@@ -1,6 +1,38 @@
 export const SAVE_KEY = "legioncoin-save-v1";
 export const MAX_OFFLINE_SECONDS = 24 * 60 * 60;
 export const TEMP_POWER_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+export const MAX_ARCADE_REWARD_PER_DAY = 40;
+export const MAX_ITEM_LEVEL = 99;
+export const MIN_PAW_RUSH_BOOST_SCORE = 5;
+export type ArcadeMode = "paw-rush" | "coin-catch" | "memory-mine";
+
+export const AVATAR_COATS = [
+  { id: "ginger", label: "Jingga Klasik", swatch: "#e99c55", filter: "none" },
+  { id: "mint", label: "Mint Nebula", swatch: "#6fc5a4", filter: "hue-rotate(112deg) saturate(1.05)" },
+  { id: "violet", label: "Ungu Kosmik", swatch: "#a984d4", filter: "hue-rotate(238deg) saturate(1.15)" },
+  { id: "rose", label: "Merah Muda", swatch: "#e48ca0", filter: "hue-rotate(302deg) saturate(1.08)" },
+  { id: "moon", label: "Bulan Es", swatch: "#85b8d8", filter: "hue-rotate(178deg) saturate(.82) brightness(1.08)" },
+] as const;
+
+export const AVATAR_ACCESSORIES = [
+  { id: "none", label: "Tanpa aksesori", symbol: "" },
+  { id: "goggles", label: "Kacamata neon", symbol: "🕶️" },
+  { id: "crown", label: "Mahkota paw", symbol: "👑" },
+  { id: "bow", label: "Pita bintang", symbol: "🎀" },
+  { id: "star", label: "Lencana bintang", symbol: "⭐" },
+] as const;
+
+export type AvatarCoatId = typeof AVATAR_COATS[number]["id"];
+export type AvatarAccessoryId = typeof AVATAR_ACCESSORIES[number]["id"];
+export type AvatarCustomization = { coat: AvatarCoatId; accessory: AvatarAccessoryId };
+export const DEFAULT_AVATAR: AvatarCustomization = { coat: "ginger", accessory: "none" };
+
+export function getArcadeRewardEstimate(mode: ArcadeMode, score: number) {
+  const cleanScore = Math.max(0, Math.floor(score));
+  if (mode === "paw-rush") return round2(Math.min(10, cleanScore * 0.25));
+  if (mode === "coin-catch") return round2(Math.min(12, cleanScore * 0.4));
+  return round2(Math.min(6, cleanScore * 1.5));
+}
 
 export const MINERS = [
   { id: "starter-cat", name: "Pawioneer Mk.I", label: "Rig pemula", power: 24, price: 0, description: "Rig mungil untuk mulai menggali hadiah virtual." },
@@ -10,13 +42,10 @@ export const MINERS = [
   { id: "lionheart-rack", name: "Lionheart Rack", label: "Rak legendaris", power: 330, price: 1680, description: "Satu rak besar untuk para penjelajah berpengalaman." },
 ] as const;
 
-export const LEAGUES = [
-  { id: "bronze", name: "Perunggu", minPower: 0, dailyPool: 300, rivalPower: 92, color: "bronze" },
-  { id: "silver", name: "Perak", minPower: 65, dailyPool: 520, rivalPower: 190, color: "silver" },
-  { id: "gold", name: "Emas", minPower: 155, dailyPool: 900, rivalPower: 360, color: "gold" },
-  { id: "platinum", name: "Platinum", minPower: 360, dailyPool: 1500, rivalPower: 760, color: "platinum" },
-  { id: "diamond", name: "Berlian", minPower: 760, dailyPool: 2500, rivalPower: 1500, color: "diamond" },
-  { id: "legend", name: "Legendaris", minPower: 1600, dailyPool: 4300, rivalPower: 3000, color: "legend" },
+export const SERVER_RACKS = [
+  { id: "purrstack-mini", name: "PurrStack Mini", label: "Rak server pemula", power: 90, price: 460, description: "Rak 2U yang dirakit Kapten Paw untuk markas baru." },
+  { id: "whisker-tower", name: "Whisker Tower", label: "Rak modular", power: 260, price: 1380, description: "Menara berpendingin senyap dengan ruang untuk rig tambahan." },
+  { id: "meow-cluster", name: "Meow Cluster 9", label: "Klaster endgame", power: 720, price: 3950, description: "Klaster server kucing berdaya besar untuk liga puncak." },
 ] as const;
 
 export type Activity = {
@@ -25,67 +54,98 @@ export type Activity = {
   title: string;
   detail: string;
   amount?: number;
-  kind: "reward" | "purchase" | "upgrade" | "boost";
+  kind: "reward" | "purchase" | "upgrade" | "boost" | "arcade";
 };
 
 export type GameSave = {
-  version: 1;
+  version: 3;
   playerName: string;
   balance: number;
   xp: number;
+  avatar: AvatarCustomization;
   minerLevels: Record<string, number>;
+  rackLevels: Record<string, number>;
   temporaryPower: number;
   temporaryPowerExpiresAt: number;
   lastSeenAt: number;
   activity: Activity[];
+  arcadeRewardDay: string;
+  arcadeCoinsToday: number;
 };
+
+export function getUtcDayKey(now = Date.now()) {
+  return new Date(now).toISOString().slice(0, 10);
+}
 
 export function createInitialSave(now = Date.now()): GameSave {
   return {
-    version: 1,
+    version: 3,
     playerName: "Penjelajah Paw",
     balance: 120,
     xp: 0,
+    avatar: { ...DEFAULT_AVATAR },
     minerLevels: { "starter-cat": 1 },
+    rackLevels: {},
     temporaryPower: 0,
     temporaryPowerExpiresAt: 0,
     lastSeenAt: now,
     activity: [{ id: `welcome-${now}`, at: now, title: "Markas dibuka", detail: "Pawioneer Mk.I siap menambang hadiah virtual.", kind: "reward" }],
+    arcadeRewardDay: getUtcDayKey(now),
+    arcadeCoinsToday: 0,
   };
 }
 
 export function normalizeSave(value: unknown, now = Date.now()): GameSave {
   const initial = createInitialSave(now);
   if (!value || typeof value !== "object") return initial;
-  const data = value as Partial<GameSave>;
-  if (data.version !== 1 || !data.minerLevels || typeof data.minerLevels !== "object") return initial;
+  const data = value as Omit<Partial<GameSave>, "version"> & { version?: number; minerLevels?: Record<string, number>; rackLevels?: Record<string, number>; avatar?: Partial<AvatarCustomization> };
+  if ((data.version !== 1 && data.version !== 2 && data.version !== 3) || !data.minerLevels || typeof data.minerLevels !== "object") return initial;
+
   const minerLevels: Record<string, number> = {};
   for (const miner of MINERS) {
     const level = Number(data.minerLevels[miner.id] || 0);
-    if (Number.isFinite(level) && level > 0) minerLevels[miner.id] = Math.min(99, Math.floor(level));
+    if (Number.isFinite(level) && level > 0) minerLevels[miner.id] = Math.min(MAX_ITEM_LEVEL, Math.floor(level));
   }
   if (!minerLevels["starter-cat"]) minerLevels["starter-cat"] = 1;
+
+  const rackLevels: Record<string, number> = {};
+  for (const rack of SERVER_RACKS) {
+    const level = Number(data.rackLevels?.[rack.id] || 0);
+    if (Number.isFinite(level) && level > 0) rackLevels[rack.id] = Math.min(MAX_ITEM_LEVEL, Math.floor(level));
+  }
+
   const activity = Array.isArray(data.activity)
-    ? data.activity.filter((item): item is Activity => Boolean(item && typeof item === "object" && typeof item.title === "string" && typeof item.detail === "string" && typeof item.at === "number" && ["reward", "purchase", "upgrade", "boost"].includes((item as Activity).kind))).slice(0, 10)
+    ? data.activity.filter((item): item is Activity => Boolean(item && typeof item === "object" && typeof item.title === "string" && typeof item.detail === "string" && typeof item.at === "number" && ["reward", "purchase", "upgrade", "boost", "arcade"].includes((item as Activity).kind))).slice(0, 10)
     : initial.activity;
+  const today = getUtcDayKey(now);
+  const arcadeRewardDay = typeof data.arcadeRewardDay === "string" ? data.arcadeRewardDay : today;
+  const arcadeCoinsToday = arcadeRewardDay === today && Number.isFinite(Number(data.arcadeCoinsToday))
+    ? Math.max(0, Math.min(MAX_ARCADE_REWARD_PER_DAY, Number(data.arcadeCoinsToday)))
+    : 0;
+  const coat = AVATAR_COATS.find((option) => option.id === data.avatar?.coat)?.id || DEFAULT_AVATAR.coat;
+  const accessory = AVATAR_ACCESSORIES.find((option) => option.id === data.avatar?.accessory)?.id || DEFAULT_AVATAR.accessory;
+
   return {
-    version: 1,
+    version: 3,
     playerName: typeof data.playerName === "string" ? data.playerName.slice(0, 24) : initial.playerName,
     balance: Number.isFinite(Number(data.balance)) ? Math.max(0, Number(data.balance)) : initial.balance,
     xp: Number.isFinite(Number(data.xp)) ? Math.max(0, Number(data.xp)) : 0,
+    avatar: { coat, accessory },
     minerLevels,
+    rackLevels,
     temporaryPower: Number.isFinite(Number(data.temporaryPower)) ? Math.max(0, Number(data.temporaryPower)) : 0,
     temporaryPowerExpiresAt: Number.isFinite(Number(data.temporaryPowerExpiresAt)) ? Number(data.temporaryPowerExpiresAt) : 0,
     lastSeenAt: Number.isFinite(Number(data.lastSeenAt)) ? Number(data.lastSeenAt) : now,
     activity,
+    arcadeRewardDay,
+    arcadeCoinsToday,
   };
 }
 
 export function getPermanentPower(save: GameSave): number {
-  return MINERS.reduce((sum, miner) => {
-    const level = save.minerLevels[miner.id] || 0;
-    return sum + miner.power * level;
-  }, 0);
+  const minerPower = MINERS.reduce((sum, miner) => sum + miner.power * (save.minerLevels[miner.id] || 0), 0);
+  const rackPower = SERVER_RACKS.reduce((sum, rack) => sum + rack.power * (save.rackLevels[rack.id] || 0), 0);
+  return minerPower + rackPower;
 }
 
 export function getActiveTemporaryPower(save: GameSave, now = Date.now()): number {
@@ -97,6 +157,15 @@ export function getLeague(power: number) {
   for (let i = 0; i < LEAGUES.length; i += 1) if (power >= LEAGUES[i].minPower) index = i;
   return { league: LEAGUES[index], index, next: LEAGUES[index + 1] };
 }
+
+export const LEAGUES = [
+  { id: "bronze", name: "Perunggu", minPower: 0, dailyPool: 300, rivalPower: 92, color: "bronze" },
+  { id: "silver", name: "Perak", minPower: 65, dailyPool: 520, rivalPower: 190, color: "silver" },
+  { id: "gold", name: "Emas", minPower: 155, dailyPool: 900, rivalPower: 360, color: "gold" },
+  { id: "platinum", name: "Platinum", minPower: 360, dailyPool: 1500, rivalPower: 760, color: "platinum" },
+  { id: "diamond", name: "Berlian", minPower: 760, dailyPool: 2500, rivalPower: 1500, color: "diamond" },
+  { id: "legend", name: "Legendaris", minPower: 1600, dailyPool: 4300, rivalPower: 3000, color: "legend" },
+] as const;
 
 export function getHourlyReward(power: number, leagueIndex: number): number {
   const league = LEAGUES[Math.max(0, Math.min(leagueIndex, LEAGUES.length - 1))];
@@ -114,7 +183,7 @@ function addActivity(save: GameSave, entry: Omit<Activity, "id" | "at">, now: nu
 }
 
 export function settleOffline(save: GameSave, now = Date.now()) {
-  const next: GameSave = { ...save, minerLevels: { ...save.minerLevels }, activity: [...save.activity] };
+  const next: GameSave = { ...save, minerLevels: { ...save.minerLevels }, rackLevels: { ...save.rackLevels }, activity: [...save.activity] };
   const elapsed = Math.max(0, Math.min(MAX_OFFLINE_SECONDS, (now - save.lastSeenAt) / 1000));
   if (elapsed > 0) {
     const { index } = getLeague(getPermanentPower(save));
@@ -136,10 +205,11 @@ export function settleOffline(save: GameSave, now = Date.now()) {
   return next;
 }
 
-export function getUpgradeCost(minerId: string, currentLevel: number) {
-  const miner = MINERS.find((item) => item.id === minerId);
-  if (!miner) return 0;
-  return Math.max(45, Math.round(miner.price * (0.72 + currentLevel * 0.62)));
+export function getUpgradeCost(itemId: string, currentLevel: number) {
+  const item = [...MINERS, ...SERVER_RACKS].find((candidate) => candidate.id === itemId);
+  if (!item) return 0;
+  const upgradeBasePrice = item.price > 0 ? item.price : 45;
+  return Math.max(45, Math.round(upgradeBasePrice * (0.72 + currentLevel * 0.62)));
 }
 
 export function buyOrUpgradeMiner(save: GameSave, minerId: string, now = Date.now()): GameSave {
@@ -147,6 +217,7 @@ export function buyOrUpgradeMiner(save: GameSave, minerId: string, now = Date.no
   const miner = MINERS.find((item) => item.id === minerId);
   if (!miner) throw new Error("Miner tidak ditemukan.");
   const currentLevel = next.minerLevels[minerId] || 0;
+  if (currentLevel >= MAX_ITEM_LEVEL) throw new Error(`${miner.name} sudah mencapai level maksimum ${MAX_ITEM_LEVEL}.`);
   const price = currentLevel > 0 ? getUpgradeCost(minerId, currentLevel) : miner.price;
   if (next.balance < price) throw new Error("Saldo LegionCoin belum cukup.");
   next.balance = round2(next.balance - price);
@@ -161,9 +232,30 @@ export function buyOrUpgradeMiner(save: GameSave, minerId: string, now = Date.no
   return next;
 }
 
+export function buyOrUpgradeRack(save: GameSave, rackId: string, now = Date.now()): GameSave {
+  const next = settleOffline(save, now);
+  const rack = SERVER_RACKS.find((item) => item.id === rackId);
+  if (!rack) throw new Error("Rak server tidak ditemukan.");
+  const currentLevel = next.rackLevels[rackId] || 0;
+  if (currentLevel >= MAX_ITEM_LEVEL) throw new Error(`${rack.name} sudah mencapai level maksimum ${MAX_ITEM_LEVEL}.`);
+  const price = currentLevel > 0 ? getUpgradeCost(rackId, currentLevel) : rack.price;
+  if (next.balance < price) throw new Error("Saldo LegionCoin belum cukup untuk rak server.");
+  next.balance = round2(next.balance - price);
+  next.rackLevels[rackId] = currentLevel + 1;
+  next.xp += Math.max(15, Math.floor(price / 2));
+  addActivity(next, {
+    title: currentLevel > 0 ? `${rack.name} di-upgrade` : `${rack.name} dibeli`,
+    detail: `Power server permanen +${rack.power} TH/s · ${price.toLocaleString("id-ID")} LC`,
+    amount: -price,
+    kind: currentLevel > 0 ? "upgrade" : "purchase",
+  }, now);
+  return next;
+}
+
 export function addTemporaryPower(save: GameSave, score: number, now = Date.now()): GameSave {
   const next = settleOffline(save, now);
   const cleanScore = Math.max(0, Math.min(100, Math.floor(score)));
+  if (cleanScore < MIN_PAW_RUSH_BOOST_SCORE) return next;
   const gained = Math.max(8, Math.round(8 + cleanScore * 2.4));
   const activePower = next.temporaryPowerExpiresAt > now ? next.temporaryPower : 0;
   next.temporaryPower = activePower + gained;
@@ -176,6 +268,31 @@ export function addTemporaryPower(save: GameSave, score: number, now = Date.now(
     kind: "boost",
   }, now);
   return next;
+}
+
+export function grantArcadeReward(save: GameSave, gameName: string, requestedAmount: number, now = Date.now()) {
+  const next = settleOffline(save, now);
+  const today = getUtcDayKey(now);
+  const earnedBefore = next.arcadeRewardDay === today ? next.arcadeCoinsToday : 0;
+  const requested = round2(Math.max(0, requestedAmount));
+  const earned = round2(Math.min(requested, Math.max(0, MAX_ARCADE_REWARD_PER_DAY - earnedBefore)));
+  next.arcadeRewardDay = today;
+  next.arcadeCoinsToday = round2(earnedBefore + earned);
+  if (earned > 0) {
+    next.balance = Math.round((next.balance + earned) * 1_000_000) / 1_000_000;
+    next.xp += Math.floor(earned * 5);
+    addActivity(next, {
+      title: `${gameName} selesai`,
+      detail: `Bonus arcade +${earned.toLocaleString("id-ID")} LC · batas harian ${MAX_ARCADE_REWARD_PER_DAY} LC`,
+      amount: earned,
+      kind: "arcade",
+    }, now);
+  }
+  return {
+    save: next,
+    earned,
+    remainingToday: round2(Math.max(0, MAX_ARCADE_REWARD_PER_DAY - next.arcadeCoinsToday)),
+  };
 }
 
 export function round2(value: number) {
