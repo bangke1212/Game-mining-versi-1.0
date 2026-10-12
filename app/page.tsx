@@ -8,13 +8,15 @@ import {
   Menu, Pickaxe, RotateCcw, Server, ShieldCheck, ShoppingBag, Sparkles, Trophy, WifiOff, Zap,
 } from "lucide-react";
 import {
-  addTemporaryPower, ArcadeMode, buyOrUpgradeMiner, buyOrUpgradeRack, createInitialSave,
-  GameSave, getActiveTemporaryPower, getArcadeRewardEstimate, getHourlyReward, getLeague,
+  addTemporaryPower, AVATAR_ACCESSORIES, AVATAR_COATS, ArcadeMode, AvatarCustomization,
+  buyOrUpgradeMiner, buyOrUpgradeRack, createInitialSave, DEFAULT_AVATAR, GameSave,
+  getActiveTemporaryPower, getArcadeRewardEstimate, getHourlyReward, getLeague,
   getPermanentPower, getPlayerShare, getUpgradeCost, getUtcDayKey, grantArcadeReward,
   MAX_ARCADE_REWARD_PER_DAY, MAX_ITEM_LEVEL, MIN_PAW_RUSH_BOOST_SCORE, MINERS,
   normalizeSave, SAVE_KEY, SERVER_RACKS, settleOffline,
 } from "@/lib/legioncoin";
 import ArcadeHub from "./arcade-hub";
+import CatAvatar from "./cat-avatar";
 
 const formatNumber = (value: number, digits = 0) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value);
 
@@ -206,6 +208,9 @@ export default function HomePage() {
   const activeRacks = useMemo(() => SERVER_RACKS.filter((rack) => (save?.rackLevels[rack.id] || 0) > 0), [save]);
   const arcadeEarnedToday = save?.arcadeRewardDay === getUtcDayKey(now) ? save.arcadeCoinsToday : 0;
   const rankEstimate = Math.max(1, Math.min(99, Math.round(4 + (1 - poolShare) * 18)));
+  const avatarCustomization = save?.avatar || DEFAULT_AVATAR;
+  const selectedCoat = AVATAR_COATS.find((option) => option.id === avatarCustomization.coat) || AVATAR_COATS[0];
+  const selectedAccessory = AVATAR_ACCESSORIES.find((option) => option.id === avatarCustomization.accessory) || AVATAR_ACCESSORIES[0];
 
   function runAction(action: (current: GameSave, time: number) => GameSave, success: string, upgradeTarget?: string) {
     const current = saveRef.current;
@@ -261,8 +266,18 @@ export default function HomePage() {
     notify("Save lokal direset.");
   }
 
+  function updateAvatar(patch: Partial<AvatarCustomization>) {
+    const current = saveRef.current;
+    if (!current) return;
+    const next = { ...current, avatar: { ...current.avatar, ...patch } };
+    saveRef.current = next;
+    setSave(next);
+    notify("Avatar diperbarui dan disimpan di perangkat.");
+  }
+
   const navItems = [
     { id: "dashboard", label: "Markas", icon: Home },
+    { id: "avatar", label: "Avatar Kucing", icon: Cat },
     { id: "arcade", label: "Arcade", icon: Gamepad2 },
     { id: "rigs", label: "Ruang Miner", icon: Cpu },
     { id: "racks", label: "Rak Server", icon: Server },
@@ -289,7 +304,7 @@ export default function HomePage() {
         </nav>
         <div className="side-divider" />
         <div className="sidebar-cat">
-          <Image src="/images/legion-cat-mascot-512.png" width={128} height={128} alt="Maskot kucing LegionCoin" />
+          <CatAvatar customization={avatarCustomization} size={128} className="cat-avatar-sidebar" alt="" />
           <p>“Satu paw lagi, satu liga lebih tinggi.”</p>
           <span><i /> SISTEM VIRTUAL AKTIF</span>
         </div>
@@ -310,7 +325,7 @@ export default function HomePage() {
           </div>
           <div className="topbar-right">
             <span className="save-pill"><span className="save-dot" /> {!storageAvailable ? "PROGRES SESI SAJA" : offlineReady ? "TERSIMPAN · OFFLINE READY" : "SAVE LOKAL AKTIF"}</span>
-            <div className="player-chip"><span className="player-initial">{save?.playerName.slice(0, 1) || "P"}</span><span><b>{save?.playerName || "Penjelajah Paw"}</b><small>MINER · LEVEL {Math.max(1, Math.floor((save?.xp || 0) / 250) + 1)}</small></span></div>
+            <div className="player-chip"><span className="player-initial"><CatAvatar customization={avatarCustomization} size={35} className="cat-avatar-chip" alt={`Avatar kucing ${save?.playerName || "Penjelajah Paw"}`} /></span><span><b>{save?.playerName || "Penjelajah Paw"}</b><small>MINER · LEVEL {Math.max(1, Math.floor((save?.xp || 0) / 250) + 1)}</small></span></div>
           </div>
         </header>
 
@@ -318,7 +333,7 @@ export default function HomePage() {
           {activeSection === "dashboard" && <section className="module-screen dashboard-screen" id="dashboard">
           <section className="welcome-row">
             <div><p className="eyebrow"><span className="eyebrow-star">✦</span> SELAMAT DATANG DI LEGION OUTPOST</p><h1>Tambang virtual.<br /><em>Petualangan nyata.</em></h1><p className="welcome-copy">Mainkan mini-game, kumpulkan power, dan naiki liga bersama kru kucingmu.</p></div>
-            <div className="mascot-hero"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><span className="hero-glow" /><Image src="/images/legion-cat-mascot-512.png" width={300} height={300} alt="Kucing penambang LegionCoin" priority /><span className="mascot-caption"><Sparkles size={13} /> KAPTEN PAW</span></div>
+            <div className="mascot-hero"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><span className="hero-glow" /><CatAvatar customization={avatarCustomization} size={300} className="cat-avatar-hero" alt={`Avatar kucing ${selectedCoat.label}`} priority /><span className="mascot-caption"><Sparkles size={13} /> KAPTEN PAW</span></div>
             <div className="offline-banner"><ShieldCheck size={17} /><span><b>{storageAvailable ? "SEMUA VIRTUAL, SEMUA MILIK SAVE LOKAL" : "PENYIMPANAN BROWSER TIDAK TERSEDIA"}</b><small>{storageAvailable ? "Tidak ada crypto sungguhan, akun online, atau transaksi jaringan." : "Progres hanya tersimpan selama halaman ini tetap terbuka."}</small></span><LockKeyhole size={15} className="banner-lock" /></div>
           </section>
 
@@ -331,7 +346,7 @@ export default function HomePage() {
 
           <section className="play-panel panel" aria-label="Terminal arcade LegionCoin">
             <div className="play-copy"><div className="section-label"><Gamepad2 size={14} /> TERMINAL ARCADE / BONUS VIRTUAL</div><h2>Jeda sebentar.<br /><span>Tambang lebih pintar.</span></h2><p>Mainkan tantangan arcade singkat untuk bonus LC virtual. Paw Rush juga memberi power sementara; Bit Catch dan Memory Mine menambah variasi skor.</p><button className="primary-button" type="button" onClick={() => selectSection("arcade")}><Gamepad2 size={16} /> Buka terminal arcade <ChevronRight size={15} /></button><div className="game-reward"><Coins size={13} /><span>HADIAH LC LOKAL · MAKS. {MAX_ARCADE_REWARD_PER_DAY} LC ARCADE / HARI</span></div></div>
-            <div className="play-art"><div className="game-sun" /><div className="pixel-cloud cloud-a" /><div className="pixel-cloud cloud-b" /><div className="mine-hill hill-back" /><div className="mine-hill hill-front" /><div className="ore ore-one">✦</div><div className="ore ore-two">✦</div><div className="play-cat"><Image src="/images/legion-cat-mascot-512.png" width={184} height={184} alt="" /></div><span className="floating-paw">✦</span><span className="art-tag"><Pickaxe size={12} /> PAW POWER, LET&apos;S GO!</span></div>
+            <div className="play-art"><div className="game-sun" /><div className="pixel-cloud cloud-a" /><div className="pixel-cloud cloud-b" /><div className="mine-hill hill-back" /><div className="mine-hill hill-front" /><div className="ore ore-one">✦</div><div className="ore ore-two">✦</div><div className="play-cat"><CatAvatar customization={avatarCustomization} size={174} className="cat-avatar-play" alt="" /></div><span className="floating-paw">✦</span><span className="art-tag"><Pickaxe size={12} /> PAW POWER, LET&apos;S GO!</span></div>
           </section>
 
           <section className="quick-access">
@@ -340,7 +355,31 @@ export default function HomePage() {
           </section>
           </section>}
 
-          {activeSection === "arcade" && <section className="module-screen"><div className="module-screen-heading"><p className="eyebrow">MODUL 01 / PERMAINAN SAMPINGAN</p><h1>Arcade <span>LegionCoin</span></h1><p>Ruang bermain mandiri untuk mendapatkan bonus LC virtual. Selesaikan sesi di layar ini untuk mengklaim hadiah.</p></div><ArcadeHub dailyEarned={arcadeEarnedToday} dailyLimit={MAX_ARCADE_REWARD_PER_DAY} onComplete={completeArcade} /></section>}
+          {activeSection === "avatar" && <section className="module-screen avatar-screen">
+            <div className="module-screen-heading"><p className="eyebrow">MODUL 01 / WORKSHOP PAW</p><h1>Avatar <span>penambang</span></h1><p>Racik tampilan kucing kru-mu. Perubahan tersimpan di perangkat dan ikut tampil di Markas, profil, serta panel arcade.</p></div>
+            <section className="avatar-workshop panel" aria-label="Kustomisasi avatar kucing">
+              <div className="avatar-preview-card">
+                <div className="avatar-preview-stage" style={{ background: `radial-gradient(circle, ${selectedCoat.swatch}48 0%, #17231a 71%)` }}>
+                  <span className="avatar-stage-orbit avatar-stage-orbit-one" /><span className="avatar-stage-orbit avatar-stage-orbit-two" />
+                  <CatAvatar customization={avatarCustomization} size={238} className="cat-avatar-showcase" alt={`Kucing penambang ${selectedCoat.label} dengan ${selectedAccessory.label.toLowerCase()}`} priority />
+                </div>
+                <div className="avatar-preview-copy"><span className="section-label"><Sparkles size={13} /> PREVIEW LANGSUNG</span><h2>{save?.playerName || "Penjelajah Paw"}</h2><p>Avatar yang sama akan menemanimu menjelajahi setiap modul.</p><div className="avatar-current-style"><span style={{ background: selectedCoat.swatch }} />{selectedCoat.label}<i />{selectedAccessory.label}</div><small className="avatar-save-note"><LockKeyhole size={12} /> KOSMETIK GRATIS · SAVE OFFLINE</small></div>
+              </div>
+              <div className="avatar-controls">
+                <section className="avatar-control-block" aria-labelledby="avatar-coat-title">
+                  <div className="avatar-control-heading"><div><span className="section-label">01 / WARNA BULU</span><h3 id="avatar-coat-title">Pilih palet</h3></div><small>{AVATAR_COATS.length} GAYA</small></div>
+                  <div className="avatar-option-grid avatar-coat-grid">{AVATAR_COATS.map((coat) => <button key={coat.id} className={`avatar-option ${avatarCustomization.coat === coat.id ? "avatar-option-active" : ""}`} type="button" aria-pressed={avatarCustomization.coat === coat.id} onClick={() => updateAvatar({ coat: coat.id })}><span className="avatar-color-swatch" style={{ background: coat.swatch }} /><span className="avatar-option-name">{coat.label}</span><small>{coat.id.toUpperCase()}</small></button>)}</div>
+                </section>
+                <section className="avatar-control-block" aria-labelledby="avatar-accessory-title">
+                  <div className="avatar-control-heading"><div><span className="section-label">02 / DETAIL TAMBAHAN</span><h3 id="avatar-accessory-title">Pilih aksesori</h3></div><small>{AVATAR_ACCESSORIES.length} GAYA</small></div>
+                  <div className="avatar-option-grid avatar-accessory-grid">{AVATAR_ACCESSORIES.map((accessory) => <button key={accessory.id} className={`avatar-option avatar-accessory-option ${avatarCustomization.accessory === accessory.id ? "avatar-option-active" : ""}`} type="button" aria-pressed={avatarCustomization.accessory === accessory.id} onClick={() => updateAvatar({ accessory: accessory.id })}><span className="avatar-accessory-symbol">{accessory.symbol || "✧"}</span><span className="avatar-option-name">{accessory.label}</span></button>)}</div>
+                </section>
+                <p className="avatar-cosmetic-disclaimer"><Check size={13} /> Hanya kosmetik; pilihan ini tidak mengubah LC, power, hadiah, atau progres liga.</p>
+              </div>
+            </section>
+          </section>}
+
+          {activeSection === "arcade" && <section className="module-screen"><div className="module-screen-heading"><p className="eyebrow">MODUL 01 / PERMAINAN SAMPINGAN</p><h1>Arcade <span>LegionCoin</span></h1><p>Ruang bermain mandiri untuk mendapatkan bonus LC virtual. Selesaikan sesi di layar ini untuk mengklaim hadiah.</p></div><ArcadeHub dailyEarned={arcadeEarnedToday} dailyLimit={MAX_ARCADE_REWARD_PER_DAY} avatar={avatarCustomization} playerName={save?.playerName || "Penjelajah Paw"} onComplete={completeArcade} /></section>}
 
           {(activeSection === "rigs" || activeSection === "league") && <section className="module-screen rigs-screen">
           <div className="section-heading" id={activeSection === "rigs" ? "rigs" : "league"}><div><p className="eyebrow">{activeSection === "rigs" ? "SEKTOR 02 / RUANG KERJA" : "MODUL 05 / TANGGA PERINGKAT"}</p><h2>{activeSection === "rigs" ? <>Rig mining <span>kamu</span></> : <>Liga &amp; <span>pool</span></>}</h2></div><span className="count-chip">{activeSection === "rigs" ? <><HardDrive size={13} /> {activeMiners.length} MINER · {activeRacks.length} RAK</> : <><Trophy size={13} /> {league.name.toUpperCase()} · PERINGKAT #{rankEstimate}</>}</span></div>

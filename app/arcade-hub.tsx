@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Brain, Coins, Gamepad2, MousePointer2, Sparkles, Timer, Trophy, X, Zap } from "lucide-react";
-import { ArcadeMode, getArcadeRewardEstimate } from "@/lib/legioncoin";
+import { ArcadeMode, AvatarCustomization, getArcadeRewardEstimate } from "@/lib/legioncoin";
+import CatAvatar from "./cat-avatar";
 
 type MemoryCard = { id: number; symbol: string; matched: boolean; revealed: boolean };
 type ArcadeHubProps = {
   dailyEarned: number;
   dailyLimit: number;
+  avatar: AvatarCustomization;
+  playerName: string;
   onComplete: (mode: ArcadeMode, score: number) => void;
 };
 
@@ -30,7 +33,7 @@ const GAME_INFO: Record<ArcadeMode, { title: string; subtitle: string; duration:
   "memory-mine": { title: "Memory Mine", subtitle: "Cocokkan empat pasang simbol tambang sebelum waktu habis.", duration: 45, reward: "Sampai 6 LC" },
 };
 
-export default function ArcadeHub({ dailyEarned, dailyLimit, onComplete }: ArcadeHubProps) {
+export default function ArcadeHub({ dailyEarned, dailyLimit, avatar, playerName, onComplete }: ArcadeHubProps) {
   const [mode, setMode] = useState<ArcadeMode | null>(null);
   const [seconds, setSeconds] = useState(0);
   const [score, setScore] = useState(0);
@@ -198,7 +201,7 @@ export default function ArcadeHub({ dailyEarned, dailyLimit, onComplete }: Arcad
       <section className="arcade-section" id="arcade">
         <div className="section-heading arcade-heading">
           <div><p className="eyebrow">SEKTOR 01 / TERMINAL ARCADE</p><h2>Arcade <span>bonus LC</span></h2></div>
-          <span className="arcade-daily-chip"><Coins size={14} /> {dailyLimit - remainingToday}/{dailyLimit} LC HARI INI</span>
+          <div className="arcade-heading-right"><div className="arcade-player-avatar"><CatAvatar customization={avatar} size={40} className="cat-avatar-arcade" alt={`Avatar kucing ${playerName}`} /><span><b>{playerName}</b><small>KRU AKTIF</small></span></div><span className="arcade-daily-chip"><Coins size={14} /> {dailyLimit - remainingToday}/{dailyLimit} LC HARI INI</span></div>
         </div>
         <p className="arcade-intro">Tantangan singkat menambah saldo virtual. Setiap permainan dihitung ke batas bonus harian agar ekonomi markas tetap seimbang.</p>
         <div className="arcade-daily-meter" aria-label={`Bonus arcade hari ini ${dailyLimit - remainingToday} dari ${dailyLimit} LC`}><span style={{ width: `${dailyProgress}%` }} /></div>
@@ -224,7 +227,7 @@ export default function ArcadeHub({ dailyEarned, dailyLimit, onComplete }: Arcad
 
       {mode && currentInfo && <div className="modal-backdrop" role="presentation">
         <section ref={dialogRef} className="minigame-modal arcade-modal" role="dialog" aria-modal="true" aria-labelledby="minigame-title" tabIndex={-1}>
-          <header className="modal-head"><div><span className="section-label"><Gamepad2 size={13} /> TANTANGAN ARCADE / {currentInfo.duration} DETIK</span><h2 id="minigame-title">{currentInfo.title}</h2></div><button ref={closeButtonRef} className="modal-close" onClick={finishGame} aria-label="Akhiri tantangan"><X size={19} /></button></header>
+          <header className="modal-head"><div className="modal-player-title"><CatAvatar customization={avatar} size={42} className="cat-avatar-arcade" alt={`Avatar kucing ${playerName}`} /><div><span className="section-label"><Gamepad2 size={13} /> TANTANGAN ARCADE / {currentInfo.duration} DETIK</span><h2 id="minigame-title">{currentInfo.title}</h2></div></div><button ref={closeButtonRef} className="modal-close" onClick={finishGame} aria-label="Akhiri tantangan"><X size={19} /></button></header>
           <div className="game-scorebar"><span><Trophy size={15} /> {mode === "memory-mine" ? "PASANGAN" : "SKOR"} <b>{score}</b></span><span className="timer-chip"><Timer size={14} /> {formatClock(seconds)}</span></div>
           {mode === "memory-mine" ? <div className="memory-arena">
             <p>BUKA DUA KARTU DAN TEMUKAN SIMBOL YANG SAMA</p>

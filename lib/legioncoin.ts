@@ -6,6 +6,27 @@ export const MAX_ITEM_LEVEL = 99;
 export const MIN_PAW_RUSH_BOOST_SCORE = 5;
 export type ArcadeMode = "paw-rush" | "coin-catch" | "memory-mine";
 
+export const AVATAR_COATS = [
+  { id: "ginger", label: "Jingga Klasik", swatch: "#e99c55", filter: "none" },
+  { id: "mint", label: "Mint Nebula", swatch: "#6fc5a4", filter: "hue-rotate(112deg) saturate(1.05)" },
+  { id: "violet", label: "Ungu Kosmik", swatch: "#a984d4", filter: "hue-rotate(238deg) saturate(1.15)" },
+  { id: "rose", label: "Merah Muda", swatch: "#e48ca0", filter: "hue-rotate(302deg) saturate(1.08)" },
+  { id: "moon", label: "Bulan Es", swatch: "#85b8d8", filter: "hue-rotate(178deg) saturate(.82) brightness(1.08)" },
+] as const;
+
+export const AVATAR_ACCESSORIES = [
+  { id: "none", label: "Tanpa aksesori", symbol: "" },
+  { id: "goggles", label: "Kacamata neon", symbol: "🕶️" },
+  { id: "crown", label: "Mahkota paw", symbol: "👑" },
+  { id: "bow", label: "Pita bintang", symbol: "🎀" },
+  { id: "star", label: "Lencana bintang", symbol: "⭐" },
+] as const;
+
+export type AvatarCoatId = typeof AVATAR_COATS[number]["id"];
+export type AvatarAccessoryId = typeof AVATAR_ACCESSORIES[number]["id"];
+export type AvatarCustomization = { coat: AvatarCoatId; accessory: AvatarAccessoryId };
+export const DEFAULT_AVATAR: AvatarCustomization = { coat: "ginger", accessory: "none" };
+
 export function getArcadeRewardEstimate(mode: ArcadeMode, score: number) {
   const cleanScore = Math.max(0, Math.floor(score));
   if (mode === "paw-rush") return round2(Math.min(10, cleanScore * 0.25));
@@ -37,10 +58,11 @@ export type Activity = {
 };
 
 export type GameSave = {
-  version: 2;
+  version: 3;
   playerName: string;
   balance: number;
   xp: number;
+  avatar: AvatarCustomization;
   minerLevels: Record<string, number>;
   rackLevels: Record<string, number>;
   temporaryPower: number;
@@ -57,10 +79,11 @@ export function getUtcDayKey(now = Date.now()) {
 
 export function createInitialSave(now = Date.now()): GameSave {
   return {
-    version: 2,
+    version: 3,
     playerName: "Penjelajah Paw",
     balance: 120,
     xp: 0,
+    avatar: { ...DEFAULT_AVATAR },
     minerLevels: { "starter-cat": 1 },
     rackLevels: {},
     temporaryPower: 0,
@@ -75,8 +98,8 @@ export function createInitialSave(now = Date.now()): GameSave {
 export function normalizeSave(value: unknown, now = Date.now()): GameSave {
   const initial = createInitialSave(now);
   if (!value || typeof value !== "object") return initial;
-  const data = value as Omit<Partial<GameSave>, "version"> & { version?: number; minerLevels?: Record<string, number>; rackLevels?: Record<string, number> };
-  if ((data.version !== 1 && data.version !== 2) || !data.minerLevels || typeof data.minerLevels !== "object") return initial;
+  const data = value as Omit<Partial<GameSave>, "version"> & { version?: number; minerLevels?: Record<string, number>; rackLevels?: Record<string, number>; avatar?: Partial<AvatarCustomization> };
+  if ((data.version !== 1 && data.version !== 2 && data.version !== 3) || !data.minerLevels || typeof data.minerLevels !== "object") return initial;
 
   const minerLevels: Record<string, number> = {};
   for (const miner of MINERS) {
@@ -99,12 +122,15 @@ export function normalizeSave(value: unknown, now = Date.now()): GameSave {
   const arcadeCoinsToday = arcadeRewardDay === today && Number.isFinite(Number(data.arcadeCoinsToday))
     ? Math.max(0, Math.min(MAX_ARCADE_REWARD_PER_DAY, Number(data.arcadeCoinsToday)))
     : 0;
+  const coat = AVATAR_COATS.find((option) => option.id === data.avatar?.coat)?.id || DEFAULT_AVATAR.coat;
+  const accessory = AVATAR_ACCESSORIES.find((option) => option.id === data.avatar?.accessory)?.id || DEFAULT_AVATAR.accessory;
 
   return {
-    version: 2,
+    version: 3,
     playerName: typeof data.playerName === "string" ? data.playerName.slice(0, 24) : initial.playerName,
     balance: Number.isFinite(Number(data.balance)) ? Math.max(0, Number(data.balance)) : initial.balance,
     xp: Number.isFinite(Number(data.xp)) ? Math.max(0, Number(data.xp)) : 0,
+    avatar: { coat, accessory },
     minerLevels,
     rackLevels,
     temporaryPower: Number.isFinite(Number(data.temporaryPower)) ? Math.max(0, Number(data.temporaryPower)) : 0,
