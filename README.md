@@ -6,16 +6,16 @@ LegionCoin adalah game browser offline dengan loop mining yang **sepenuhnya simu
 
 ## Susunan dashboard
 
-Markas menampilkan ringkasan dan pintasan. Workshop Avatar, Arcade, Ruang Miner, Rak Server, Liga & Pool, Pasar Rig & Rak, serta Dompet Virtual masing-masing dibuka sebagai layar terpisah melalui menu samping atau pintasan Markas; memilih modul tidak lagi hanya menggulir halaman panjang yang sama.
+Markas menampilkan ringkasan dan pintasan. Workshop Avatar, Arcade, Ruang Miner, Rak Server, Liga & Pool, Pasar Rig & Rak, serta Dompet Virtual masing-masing dibuka sebagai layar terpisah melalui menu samping atau pintasan Markas; Ruang Miner kini berupa ruang visual dengan rak, miner terpasang, slot kosong, dan inventori unit.
 
 ## Mekanisme game
 
-- **Rig mining:** tingkatkan rig langsung dari ruang kerja atau pasar. Tiap level menambah power permanen dan harganya meningkat; level maksimum 99.
+- **Inventori miner fisik:** setiap pembelian miner di Pasar membuat unit tersendiri di inventori. Pasang unit di Ruang Miner untuk mengaktifkan power; unit yang disimpan tidak menghasilkan power. Unit dapat ditingkatkan satu per satu sampai level 99.
 - **Kustomisasi avatar:** pilih dari lima warna bulu dan lima aksesori, lihat pratinjau langsung, dan gunakan avatar yang sama di profil, Markas, serta Arcade. Kosmetik gratis dan tidak mengubah saldo, power, hadiah, atau liga.
-- **Rak server kucing:** beli dan tingkatkan PurrStack Mini, Whisker Tower, serta Meow Cluster 9. Power rak ikut menambah Mining Power permanen; level maksimum 99.
+- **Rak server kucing:** setiap pembelian membuat unit rak tersendiri. Rak yang dipasang menambah kapasitas slot miner serta power permanen; upgrade menaikkan power per unit dan level maksimum 99.
 - **Efek upgrade:** upgrade rig atau rak yang berhasil memicu kilau, lompatan maskot, label level-up, dan chime singkat yang disintesis melalui Web Audio. Efek suara tidak memakai file atau koneksi jaringan, dan animasi mengikuti preferensi reduced-motion perangkat.
 - **Arcade:** **Paw Rush** memberi power sementara selama tujuh hari setelah minimal lima tangkapan; **Bit Catch** memberi skor dengan mengambil koin data dan menghindari bug; **Memory Mine** memberi skor lewat permainan mencocokkan kartu. Bonus arcade menambah LC virtual dengan batas total **40 LC per hari**.
-- **Migrasi save:** save versi 1/2 dimigrasikan otomatis ke versi 3 saat game dibuka; level miner, saldo, serta progres lama dipertahankan dan avatar mendapat tampilan default.
+- **Migrasi save:** save versi 1/2/3 dimigrasikan otomatis ke versi 4. Miner dan rak lama menjadi satu unit terpasang per jenis pada level tersimpan; saldo, power, avatar, dan progres lain dipertahankan.
 - **Liga dan reward pool:** tiap liga memiliki pool harian simulasi dan rival bot lokal. Reward dihitung secara proporsional menurut power pemain dan power rival, mengikuti konsep pembagian pool kompetitif.
 - **Progres offline:** pendapatan virtual bertambah ketika aplikasi ditutup, dengan akumulasi maksimal 24 jam per sesi kembali.
 - **Save lokal:** progres tersimpan di `localStorage` browser/perangkat yang sama. Menghapus data situs akan menghapus save. Tidak ada sinkronisasi antarperangkat.
