@@ -8,6 +8,7 @@ LegionCoin adalah game browser offline dengan loop mining yang **sepenuhnya simu
 
 - **Rig mining:** tingkatkan rig langsung dari ruang kerja atau pasar. Tiap level menambah power permanen dan harganya meningkat; level maksimum 99.
 - **Rak server kucing:** beli dan tingkatkan PurrStack Mini, Whisker Tower, serta Meow Cluster 9. Power rak ikut menambah Mining Power permanen; level maksimum 99.
+- **Efek upgrade:** upgrade rig atau rak yang berhasil memicu kilau, lompatan maskot, label level-up, dan chime singkat yang disintesis melalui Web Audio. Efek suara tidak memakai file atau koneksi jaringan, dan animasi mengikuti preferensi reduced-motion perangkat.
 - **Arcade:** **Paw Rush** memberi power sementara selama tujuh hari setelah minimal lima tangkapan; **Bit Catch** memberi skor dengan mengambil koin data dan menghindari bug; **Memory Mine** memberi skor lewat permainan mencocokkan kartu. Bonus arcade menambah LC virtual dengan batas total **40 LC per hari**.
 - **Migrasi save:** save versi lama dimigrasikan otomatis saat game dibuka; level miner dan saldo lama dipertahankan.
 - **Liga dan reward pool:** tiap liga memiliki pool harian simulasi dan rival bot lokal. Reward dihitung secara proporsional menurut power pemain dan power rival, mengikuti konsep pembagian pool kompetitif.

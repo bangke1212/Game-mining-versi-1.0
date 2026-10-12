@@ -33,9 +33,13 @@ export default function HomePage() {
   const [activeSection, setActiveSection] = useState("dashboard");
   const [offlineReady, setOfflineReady] = useState(false);
   const [storageAvailable, setStorageAvailable] = useState(true);
+  const [upgradeEffect, setUpgradeEffect] = useState<{ target: string; sequence: number } | null>(null);
   const saveRef = useRef<GameSave | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   const storageWarningShownRef = useRef(false);
+  const upgradeSequenceRef = useRef(0);
+  const upgradeEffectTimerRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const notify = useCallback((message: string) => {
     if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
@@ -49,6 +53,52 @@ export default function HomePage() {
     storageWarningShownRef.current = true;
     notify("Penyimpanan browser tidak tersedia; progres hanya bertahan selama halaman terbuka.");
   }, [notify]);
+
+  function playUpgradeSound() {
+    try {
+      if (!window.AudioContext) return;
+      const audio = audioContextRef.current || new window.AudioContext();
+      audioContextRef.current = audio;
+      if (audio.state === "suspended") void audio.resume();
+      const start = audio.currentTime + 0.025;
+      const master = audio.createGain();
+      master.gain.setValueAtTime(0.0001, start);
+      master.gain.exponentialRampToValueAtTime(0.16, start + 0.025);
+      master.gain.exponentialRampToValueAtTime(0.0001, start + 0.76);
+      master.connect(audio.destination);
+      [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
+        const at = start + index * 0.105;
+        const duration = index === 3 ? 0.35 : 0.18;
+        const tone = audio.createOscillator();
+        const envelope = audio.createGain();
+        tone.type = "triangle";
+        tone.frequency.setValueAtTime(frequency, at);
+        envelope.gain.setValueAtTime(0.0001, at);
+        envelope.gain.exponentialRampToValueAtTime(0.72, at + 0.018);
+        envelope.gain.exponentialRampToValueAtTime(0.0001, at + duration);
+        tone.connect(envelope);
+        envelope.connect(master);
+        tone.start(at);
+        tone.stop(at + duration + 0.025);
+      });
+    } catch {
+      // Audio is optional; unsupported or blocked sound must never interrupt an upgrade.
+    }
+  }
+
+  function triggerUpgradeFeedback(target: string) {
+    const sequence = ++upgradeSequenceRef.current;
+    setUpgradeEffect({ target, sequence });
+    if (upgradeEffectTimerRef.current !== null) window.clearTimeout(upgradeEffectTimerRef.current);
+    upgradeEffectTimerRef.current = window.setTimeout(() => setUpgradeEffect(null), 1100);
+    playUpgradeSound();
+  }
+
+  useEffect(() => () => {
+    if (upgradeEffectTimerRef.current !== null) window.clearTimeout(upgradeEffectTimerRef.current);
+    const audio = audioContextRef.current;
+    if (audio && audio.state !== "closed") void audio.close().catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     let next: GameSave;
@@ -130,7 +180,7 @@ export default function HomePage() {
   const arcadeEarnedToday = save?.arcadeRewardDay === getUtcDayKey(now) ? save.arcadeCoinsToday : 0;
   const rankEstimate = Math.max(1, Math.min(99, Math.round(4 + (1 - poolShare) * 18)));
 
-  function runAction(action: (current: GameSave, time: number) => GameSave, success: string) {
+  function runAction(action: (current: GameSave, time: number) => GameSave, success: string, upgradeTarget?: string) {
     const current = saveRef.current;
     if (!current) return;
     try {
@@ -138,9 +188,15 @@ export default function HomePage() {
       saveRef.current = next;
       setSave(next);
       notify(success);
+      if (upgradeTarget) triggerUpgradeFeedback(upgradeTarget);
     } catch (error) {
       notify(error instanceof Error ? error.message : "Aksi belum bisa dilakukan.");
     }
+  }
+
+  function upgradeAnimationStyle(target: string) {
+    if (upgradeEffect?.target !== target) return undefined;
+    return { animationName: upgradeEffect.sequence % 2 === 0 ? "legionUpgradePulseA" : "legionUpgradePulseB" };
   }
 
   const completeArcade = useCallback((mode: ArcadeMode, score: number) => {
@@ -260,10 +316,13 @@ export default function HomePage() {
                   const level = save?.minerLevels[miner.id] || 1;
                   const isStarter = miner.id === "starter-cat";
                   const upgradePrice = getUpgradeCost(miner.id, level);
-                  return <article className={`rig-tile ${isStarter ? "rig-featured" : ""}`} key={miner.id}>
+                  const upgradeTarget = `miner:${miner.id}`;
+                  const upgradeActive = upgradeEffect?.target === upgradeTarget;
+                  return <article className={`rig-tile ${isStarter ? "rig-featured" : ""} ${upgradeActive ? "upgrade-celebrate" : ""}`} style={upgradeAnimationStyle(upgradeTarget)} key={miner.id}>
+                    {upgradeActive && <span className="upgrade-flash-label"><Sparkles size={11} /> LEVEL UP</span>}
                     <div className="rig-tile-top"><div className={`miner-glyph miner-glyph-${index}`}><Image src="/images/legion-cat-mascot-512.png" width={74} height={74} alt="" /></div><span className="rig-level">LV.{String(level).padStart(2, "0")}</span></div>
                     <h4>{miner.name}</h4><p>{miner.label}</p><div className="rig-power"><Zap size={14} /> {formatNumber(miner.power * level)} <small>TH/s</small></div><div className="rig-meter"><span style={{ width: `${36 + ((now / 1000 + index * 17) % 58)}%` }} /></div><div className="rig-tile-foot"><span><i /> ONLINE</span><span>#{String(index + 1).padStart(2, "0")}</span></div>
-                    <button className="rig-upgrade-action" disabled={!save || save.balance < upgradePrice || level >= MAX_ITEM_LEVEL} onClick={() => runAction((current, time) => buyOrUpgradeMiner(current, miner.id, time), `${miner.name} ditingkatkan!`)}><Zap size={12} /> {level >= MAX_ITEM_LEVEL ? "LEVEL MAKS" : `UPGRADE · ${formatNumber(upgradePrice)} LC`}</button>
+                    <button className="rig-upgrade-action" disabled={!save || save.balance < upgradePrice || level >= MAX_ITEM_LEVEL} onClick={() => runAction((current, time) => buyOrUpgradeMiner(current, miner.id, time), `${miner.name} ditingkatkan!`, upgradeTarget)}><Zap size={12} /> {level >= MAX_ITEM_LEVEL ? "LEVEL MAKS" : `UPGRADE · ${formatNumber(upgradePrice)} LC`}</button>
                   </article>;
                 })}
               </div>
@@ -286,9 +345,12 @@ export default function HomePage() {
               const level = save?.rackLevels[rack.id] || 1;
               const upgradePrice = getUpgradeCost(rack.id, level);
               const atMaxLevel = level >= MAX_ITEM_LEVEL;
-              return <article className="server-rack-tile" key={rack.id}>
+              const upgradeTarget = `rack:${rack.id}`;
+              const upgradeActive = upgradeEffect?.target === upgradeTarget;
+              return <article className={`server-rack-tile ${upgradeActive ? "upgrade-celebrate" : ""}`} style={upgradeAnimationStyle(upgradeTarget)} key={rack.id}>
+                {upgradeActive && <span className="upgrade-flash-label"><Sparkles size={11} /> RACK LEVEL UP</span>}
                 <div className={`server-rack-art rack-art-${index}`}><Server size={31} /><span>🐈</span></div>
-                <div className="server-rack-info"><div className="server-rack-title"><div><span className="item-type">{rack.label.toUpperCase()}</span><h4>{rack.name}</h4></div><span className="rig-level">LV.{String(level).padStart(2, "0")}</span></div><p>{rack.description}</p><div className="server-rack-stats"><span><Zap size={13} /> {formatNumber(rack.power * level)} TH/s</span><span><i /> ONLINE</span></div><button className="rig-upgrade-action" disabled={!save || save.balance < upgradePrice || atMaxLevel} onClick={() => runAction((current, time) => buyOrUpgradeRack(current, rack.id, time), `${rack.name} di-upgrade!`)}><Zap size={12} /> {atMaxLevel ? "LEVEL MAKS" : `UPGRADE RAK · ${formatNumber(upgradePrice)} LC`}</button></div>
+                <div className="server-rack-info"><div className="server-rack-title"><div><span className="item-type">{rack.label.toUpperCase()}</span><h4>{rack.name}</h4></div><span className="rig-level">LV.{String(level).padStart(2, "0")}</span></div><p>{rack.description}</p><div className="server-rack-stats"><span><Zap size={13} /> {formatNumber(rack.power * level)} TH/s</span><span><i /> ONLINE</span></div><button className="rig-upgrade-action" disabled={!save || save.balance < upgradePrice || atMaxLevel} onClick={() => runAction((current, time) => buyOrUpgradeRack(current, rack.id, time), `${rack.name} di-upgrade!`, upgradeTarget)}><Zap size={12} /> {atMaxLevel ? "LEVEL MAKS" : `UPGRADE RAK · ${formatNumber(upgradePrice)} LC`}</button></div>
               </article>;
             })}</div> : <div className="rack-empty"><div className="server-rack-art rack-art-empty"><Server size={33} /><span>🐱</span></div><div><b>Bay server masih kosong</b><p>Pasang rak kucing dari pasar di bawah. Setiap rak menambah power permanen dan membantu naik liga.</p></div></div>}
             <div className="rig-footer"><span><BatteryCharging size={14} /> Semua rak virtual · tidak memakai CPU untuk mining</span><span><span className="live-dot" /> SAVE OTOMATIS</span></div>
@@ -302,9 +364,12 @@ export default function HomePage() {
                 const owned = level > 0;
                 const price = owned ? getUpgradeCost(miner.id, level) : miner.price;
                 const atMaxLevel = level >= MAX_ITEM_LEVEL;
-                return <article className={`market-card panel ${owned ? "market-owned" : ""}`} key={miner.id}>
+                const upgradeTarget = `miner:${miner.id}`;
+                const upgradeActive = upgradeEffect?.target === upgradeTarget;
+                return <article className={`market-card panel ${owned ? "market-owned" : ""} ${upgradeActive ? "upgrade-celebrate" : ""}`} style={upgradeAnimationStyle(upgradeTarget)} key={miner.id}>
+                  {upgradeActive && <span className="upgrade-flash-label"><Sparkles size={11} /> LEVEL UP</span>}
                   <div className={`market-art market-art-${index}`}><div className="market-ring" /><Image src="/images/legion-cat-mascot-512.png" width={102} height={102} alt="" /><span className="market-power"><Zap size={12} /> +{miner.power * (owned ? level + 1 : 1)} TH/s</span></div>
-                  <div className="market-card-body"><span className="item-type">{miner.label.toUpperCase()}</span><h3>{miner.name}</h3><p>{miner.description}</p><div className="market-bottom"><span className="item-price">{atMaxLevel ? <span>LEVEL MAKS</span> : <><Coins size={15} /> {formatNumber(price)} <small>LC</small></>}</span><button className={`buy-button ${owned ? "upgrade-button" : ""}`} disabled={!save || save.balance < price || atMaxLevel} onClick={() => runAction((current, time) => buyOrUpgradeMiner(current, miner.id, time), owned ? "Miner ditingkatkan!" : "Miner baru aktif!")}>{atMaxLevel ? "LEVEL MAKS" : owned ? "TINGKATKAN" : "BELI MINER"}{!atMaxLevel && <ChevronRight size={14} />}</button></div>{owned && <span className="owned-caption"><Check size={11} /> TERPASANG · LEVEL {level}/{MAX_ITEM_LEVEL}</span>}</div>
+                  <div className="market-card-body"><span className="item-type">{miner.label.toUpperCase()}</span><h3>{miner.name}</h3><p>{miner.description}</p><div className="market-bottom"><span className="item-price">{atMaxLevel ? <span>LEVEL MAKS</span> : <><Coins size={15} /> {formatNumber(price)} <small>LC</small></>}</span><button className={`buy-button ${owned ? "upgrade-button" : ""}`} disabled={!save || save.balance < price || atMaxLevel} onClick={() => runAction((current, time) => buyOrUpgradeMiner(current, miner.id, time), owned ? "Miner ditingkatkan!" : "Miner baru aktif!", owned ? upgradeTarget : undefined)}>{atMaxLevel ? "LEVEL MAKS" : owned ? "TINGKATKAN" : "BELI MINER"}{!atMaxLevel && <ChevronRight size={14} />}</button></div>{owned && <span className="owned-caption"><Check size={11} /> TERPASANG · LEVEL {level}/{MAX_ITEM_LEVEL}</span>}</div>
                 </article>;
               })}
             </div>
@@ -315,9 +380,12 @@ export default function HomePage() {
                 const owned = level > 0;
                 const price = owned ? getUpgradeCost(rack.id, level) : rack.price;
                 const atMaxLevel = level >= MAX_ITEM_LEVEL;
-                return <article className={`market-card panel ${owned ? "market-owned" : ""}`} key={rack.id}>
+                const upgradeTarget = `rack:${rack.id}`;
+                const upgradeActive = upgradeEffect?.target === upgradeTarget;
+                return <article className={`market-card panel ${owned ? "market-owned" : ""} ${upgradeActive ? "upgrade-celebrate" : ""}`} style={upgradeAnimationStyle(upgradeTarget)} key={rack.id}>
+                  {upgradeActive && <span className="upgrade-flash-label"><Sparkles size={11} /> RACK LEVEL UP</span>}
                   <div className={`market-art rack-market-art market-art-${index}`}><div className="market-ring" /><div className="rack-market-icon"><Server size={43} /><span>🐈</span></div><span className="market-power"><Zap size={12} /> +{formatNumber(rack.power)} TH/s / level</span></div>
-                  <div className="market-card-body"><span className="item-type">{rack.label.toUpperCase()}</span><h3>{rack.name}</h3><p>{rack.description}</p><div className="market-bottom"><span className="item-price">{atMaxLevel ? <span>LEVEL MAKS</span> : <><Coins size={15} /> {formatNumber(price)} <small>LC</small></>}</span><button className={`buy-button ${owned ? "upgrade-button" : ""}`} disabled={!save || save.balance < price || atMaxLevel} onClick={() => runAction((current, time) => buyOrUpgradeRack(current, rack.id, time), owned ? "Rak server di-upgrade!" : "Rak server kucing terpasang!")}>{atMaxLevel ? "LEVEL MAKS" : owned ? "UPGRADE RAK" : "BELI RAK"}{!atMaxLevel && <ChevronRight size={14} />}</button></div>{owned && <span className="owned-caption"><Check size={11} /> TERPASANG · LEVEL {level}/{MAX_ITEM_LEVEL}</span>}</div>
+                  <div className="market-card-body"><span className="item-type">{rack.label.toUpperCase()}</span><h3>{rack.name}</h3><p>{rack.description}</p><div className="market-bottom"><span className="item-price">{atMaxLevel ? <span>LEVEL MAKS</span> : <><Coins size={15} /> {formatNumber(price)} <small>LC</small></>}</span><button className={`buy-button ${owned ? "upgrade-button" : ""}`} disabled={!save || save.balance < price || atMaxLevel} onClick={() => runAction((current, time) => buyOrUpgradeRack(current, rack.id, time), owned ? "Rak server di-upgrade!" : "Rak server kucing terpasang!", owned ? upgradeTarget : undefined)}>{atMaxLevel ? "LEVEL MAKS" : owned ? "UPGRADE RAK" : "BELI RAK"}{!atMaxLevel && <ChevronRight size={14} />}</button></div>{owned && <span className="owned-caption"><Check size={11} /> TERPASANG · LEVEL {level}/{MAX_ITEM_LEVEL}</span>}</div>
                 </article>;
               })}
             </div>
