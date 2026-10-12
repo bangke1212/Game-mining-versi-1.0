@@ -45,6 +45,9 @@ export default function ArcadeHub({ dailyEarned, dailyLimit, onComplete }: Arcad
   const finishedRef = useRef(false);
   const selectedRef = useRef<number[]>([]);
   const busyRef = useRef(false);
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
 
   const finishGame = useCallback(() => {
     const activeMode = modeRef.current;
@@ -67,8 +70,40 @@ export default function ArcadeHub({ dailyEarned, dailyLimit, onComplete }: Arcad
     return () => window.clearTimeout(timer);
   }, [mode, seconds, finishGame]);
 
-  function startGame(selectedMode: ArcadeMode) {
+  useEffect(() => {
+    if (!mode) return;
+    closeButtonRef.current?.focus();
+    const handleDialogKeys = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        finishGame();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), [href], input:not(:disabled), [tabindex]:not([tabindex="-1"])') || []);
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first) {
+        event.preventDefault();
+        dialogRef.current?.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", handleDialogKeys);
+    return () => {
+      window.removeEventListener("keydown", handleDialogKeys);
+      openerRef.current?.focus();
+    };
+  }, [mode, finishGame]);
+
+  function startGame(selectedMode: ArcadeMode, opener: HTMLElement | null) {
     gameRunIdRef.current += 1;
+    openerRef.current = opener;
     modeRef.current = selectedMode;
     finishedRef.current = false;
     scoreRef.current = 0;
@@ -171,25 +206,25 @@ export default function ArcadeHub({ dailyEarned, dailyLimit, onComplete }: Arcad
           <article className="arcade-card arcade-paw-card">
             <div className="arcade-card-icon">🐾</div><span className="arcade-number">ARCADE / 01</span><h3>Paw Rush</h3>
             <p>{GAME_INFO["paw-rush"].subtitle}</p><div className="arcade-reward-line"><Zap size={13} /> 5+ TANGKAPAN · LC + POWER SEMENTARA</div>
-            <button className="arcade-play-button" onClick={() => startGame("paw-rush")}><Gamepad2 size={15} /> Mainkan Paw Rush</button>
+            <button className="arcade-play-button" onClick={(event) => startGame("paw-rush", event.currentTarget)}><Gamepad2 size={15} /> Mainkan Paw Rush</button>
           </article>
           <article className="arcade-card arcade-coin-card">
             <div className="arcade-card-icon"><Coins size={29} /></div><span className="arcade-number">ARCADE / 02</span><h3>Bit Catch</h3>
             <p>{GAME_INFO["coin-catch"].subtitle} Waktu bermain 20 detik.</p><div className="arcade-reward-line"><Sparkles size={13} /> SAMPAI 12 LC · KOIN +1 / BUG −2</div>
-            <button className="arcade-play-button" onClick={() => startGame("coin-catch")}><MousePointer2 size={15} /> Tangkap bit</button>
+            <button className="arcade-play-button" onClick={(event) => startGame("coin-catch", event.currentTarget)}><MousePointer2 size={15} /> Tangkap bit</button>
           </article>
           <article className="arcade-card arcade-memory-card">
             <div className="arcade-card-icon"><Brain size={28} /></div><span className="arcade-number">ARCADE / 03</span><h3>Memory Mine</h3>
             <p>{GAME_INFO["memory-mine"].subtitle} Waktu bermain 45 detik.</p><div className="arcade-reward-line"><Trophy size={13} /> 1,5 LC PER PASANGAN · MAKS. 6 LC</div>
-            <button className="arcade-play-button" onClick={() => startGame("memory-mine")}><Brain size={15} /> Mulai memori</button>
+            <button className="arcade-play-button" onClick={(event) => startGame("memory-mine", event.currentTarget)}><Brain size={15} /> Mulai memori</button>
           </article>
         </div>
         <div className="arcade-footnote"><Timer size={14} /><span>Bonus tersisa hari ini: <b>{remainingToday.toLocaleString("id-ID")} LC</b>. Saldo dan hasil hanya tersimpan lokal di browser ini; tidak ada nilai uang atau penarikan.</span></div>
       </section>
 
       {mode && currentInfo && <div className="modal-backdrop" role="presentation">
-        <section className="minigame-modal arcade-modal" role="dialog" aria-modal="true" aria-labelledby="minigame-title">
-          <header className="modal-head"><div><span className="section-label"><Gamepad2 size={13} /> TANTANGAN ARCADE / {currentInfo.duration} DETIK</span><h2 id="minigame-title">{currentInfo.title}</h2></div><button className="modal-close" onClick={finishGame} aria-label="Akhiri tantangan"><X size={19} /></button></header>
+        <section ref={dialogRef} className="minigame-modal arcade-modal" role="dialog" aria-modal="true" aria-labelledby="minigame-title" tabIndex={-1}>
+          <header className="modal-head"><div><span className="section-label"><Gamepad2 size={13} /> TANTANGAN ARCADE / {currentInfo.duration} DETIK</span><h2 id="minigame-title">{currentInfo.title}</h2></div><button ref={closeButtonRef} className="modal-close" onClick={finishGame} aria-label="Akhiri tantangan"><X size={19} /></button></header>
           <div className="game-scorebar"><span><Trophy size={15} /> {mode === "memory-mine" ? "PASANGAN" : "SKOR"} <b>{score}</b></span><span className="timer-chip"><Timer size={14} /> {formatClock(seconds)}</span></div>
           {mode === "memory-mine" ? <div className="memory-arena">
             <p>BUKA DUA KARTU DAN TEMUKAN SIMBOL YANG SAMA</p>
