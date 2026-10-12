@@ -1,0 +1,16 @@
+{
+  "id": "/",
+  "name": "LegionCoin — Tambang Virtual Paw Power",
+  "short_name": "LegionCoin",
+  "description": "Game simulasi mining offline dengan maskot kucing. Semua saldo dan reward hanya virtual.",
+  "lang": "id-ID",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#101710",
+  "theme_color": "#101710",
+  "icons": [
+    { "src": "/images/legion-cat-mascot-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
