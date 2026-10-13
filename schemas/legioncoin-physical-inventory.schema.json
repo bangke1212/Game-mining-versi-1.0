@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/bangke1212/Game-mining-versi-1.0/main/schemas/legioncoin-physical-inventory.schema.json",
+  "title": "LegionCoin Physical GPU Inventory",
+  "description": "Payload inventory GPU dan rack fisik untuk integrasi database mendatang. Tidak mengaktifkan backend pada game offline saat ini.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "playerId", "rooms", "rackUnits", "gpuUnits"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "playerId": { "type": "string", "format": "uuid" },
+    "rooms": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/room" }
+    },
+    "rackUnits": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/rackUnit" }
+    },
+    "gpuUnits": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/gpuUnit" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "room": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "baseGpuSlots", "grid"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "baseGpuSlots": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "grid": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height"],
+          "properties": {
+            "width": { "type": "integer", "minimum": 1, "maximum": 1000 },
+            "height": { "type": "integer", "minimum": 1, "maximum": 1000 }
+          }
+        }
+      }
+    },
+    "rackUnit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rackModelId", "level", "location"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "rackModelId": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "maxLength": 64 },
+        "level": { "type": "integer", "minimum": 1, "maximum": 99 },
+        "location": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind"],
+              "properties": { "kind": { "const": "inventory" } }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "roomId", "x", "y"],
+              "properties": {
+                "kind": { "const": "room" },
+                "roomId": { "$ref": "#/$defs/id" },
+                "x": { "type": "integer", "minimum": 0, "maximum": 999 },
+                "y": { "type": "integer", "minimum": 0, "maximum": 999 }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "gpuUnit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "gpuModelId", "level", "location"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "gpuModelId": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "maxLength": 64 },
+        "level": { "type": "integer", "minimum": 1, "maximum": 99 },
+        "location": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind"],
+              "properties": { "kind": { "const": "inventory" } }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "roomId", "slotNo"],
+              "properties": {
+                "kind": { "const": "room" },
+                "roomId": { "$ref": "#/$defs/id" },
+                "slotNo": { "type": "integer", "minimum": 1 }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "roomId", "rackUnitId", "slotNo"],
+              "properties": {
+                "kind": { "const": "rack" },
+                "roomId": { "$ref": "#/$defs/id" },
+                "rackUnitId": { "$ref": "#/$defs/id" },
+                "slotNo": { "type": "integer", "minimum": 1 }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
