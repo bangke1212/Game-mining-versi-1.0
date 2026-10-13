@@ -35,8 +35,14 @@ Buka `http://localhost:3000`. Jalankan `npm run build` untuk menghasilkan static
 
 1. Impor repository ini ke Vercel dan pilih preset **Next.js**.
 2. Biarkan Build Command dan Output Directory menggunakan nilai default Next.js. Konfigurasi `output: "export"` menghasilkan folder `out/` untuk publikasi statis.
-3. Tidak dibutuhkan database, kredensial OAuth, environment variable, API route, maupun backend.
+3. Runtime game tidak membutuhkan database, kredensial OAuth, environment variable, API route, maupun backend.
 4. Deploy harus disajikan melalui HTTPS agar PWA dan service worker dapat bekerja. Setelah kunjungan pertama, file game dan aset yang telah dicache dapat dipakai offline.
+
+## Skema database opsional
+
+Blueprint database inventori GPU dan rak server tersedia di `db/schema.sql`, dengan contoh katalog di `db/seed-gpu-catalog.sql`. Kontrak payload JSON ada di `schemas/legioncoin-physical-inventory.schema.json`, dan relasi serta contoh payload dijelaskan di `docs/physical-inventory-database.md`.
+
+Skema ini memisahkan setiap GPU/rak sebagai unit fisik yang bisa berada di inventori, ruang, atau slot rak. Blueprint belum dihubungkan ke aplikasi; game tetap memakai `localStorage` dan dapat dimainkan offline. Katalog GPU seed belum diaktifkan untuk Pasar dan tidak mengisi nilai LC/TH/s simulasi.
 
 ## Data & privasi
 
