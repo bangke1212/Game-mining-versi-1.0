@@ -229,6 +229,7 @@ export default function HomePage() {
       "paw-rush": "Paw Rush",
       "coin-catch": "Bit Catch",
       "memory-mine": "Memory Mine",
+      "car-rush": "Car Rush",
     };
     const boostEarned = mode === "paw-rush" && score >= MIN_PAW_RUSH_BOOST_SCORE;
     let next = boostEarned ? addTemporaryPower(current, score, stamp) : current;
@@ -333,7 +334,7 @@ export default function HomePage() {
           </section>
 
           <section className="play-panel panel" aria-label="Terminal arcade LegionCoin">
-            <div className="play-copy"><div className="section-label"><Gamepad2 size={14} /> TERMINAL ARCADE / BONUS VIRTUAL</div><h2>Jeda sebentar.<br /><span>Tambang lebih pintar.</span></h2><p>Mainkan tantangan arcade singkat untuk bonus LC virtual. Paw Rush juga memberi power sementara; Bit Catch dan Memory Mine menambah variasi skor.</p><button className="primary-button" type="button" onClick={() => selectSection("arcade")}><Gamepad2 size={16} /> Buka terminal arcade <ChevronRight size={15} /></button><div className="game-reward"><Coins size={13} /><span>HADIAH LC LOKAL · MAKS. {MAX_ARCADE_REWARD_PER_DAY} LC ARCADE / HARI</span></div></div>
+            <div className="play-copy"><div className="section-label"><Gamepad2 size={14} /> TERMINAL ARCADE / BONUS VIRTUAL</div><h2>Jeda sebentar.<br /><span>Tambang lebih pintar.</span></h2><p>Mainkan tantangan arcade singkat untuk bonus LC virtual. Paw Rush juga memberi power sementara; Bit Catch, Memory Mine, dan Car Rush menambah variasi skor.</p><button className="primary-button" type="button" onClick={() => selectSection("arcade")}><Gamepad2 size={16} /> Buka terminal arcade <ChevronRight size={15} /></button><div className="game-reward"><Coins size={13} /><span>HADIAH LC LOKAL · MAKS. {MAX_ARCADE_REWARD_PER_DAY} LC ARCADE / HARI</span></div></div>
             <div className="play-art"><div className="game-sun" /><div className="pixel-cloud cloud-a" /><div className="pixel-cloud cloud-b" /><div className="mine-hill hill-back" /><div className="mine-hill hill-front" /><div className="ore ore-one">✦</div><div className="ore ore-two">✦</div><div className="play-cat"><CatAvatar customization={avatarCustomization} size={174} className="cat-avatar-play" alt="" /></div><span className="floating-paw">✦</span><span className="art-tag"><Pickaxe size={12} /> PAW POWER, LET&apos;S GO!</span></div>
           </section>
 

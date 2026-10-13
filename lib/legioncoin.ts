@@ -5,7 +5,7 @@ export const MAX_ARCADE_REWARD_PER_DAY = 40;
 export const MAX_ITEM_LEVEL = 99;
 export const MIN_PAW_RUSH_BOOST_SCORE = 5;
 export const STARTER_ROOM_SLOTS = 6;
-export type ArcadeMode = "paw-rush" | "coin-catch" | "memory-mine";
+export type ArcadeMode = "paw-rush" | "coin-catch" | "memory-mine" | "car-rush";
 
 export const AVATAR_COATS = [
   { id: "ginger", label: "Jingga Klasik", swatch: "#e99c55", filter: "none" },
@@ -32,6 +32,7 @@ export function getArcadeRewardEstimate(mode: ArcadeMode, score: number) {
   const cleanScore = Math.max(0, Math.floor(score));
   if (mode === "paw-rush") return round2(Math.min(10, cleanScore * 0.25));
   if (mode === "coin-catch") return round2(Math.min(12, cleanScore * 0.4));
+  if (mode === "car-rush") return round2(Math.min(8, cleanScore * 0.25));
   return round2(Math.min(6, cleanScore * 1.5));
 }
 
