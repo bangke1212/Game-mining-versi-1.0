@@ -20,6 +20,15 @@ import {
 } from "@/lib/legioncoin";
 
 const formatNumber = (value: number, digits = 0) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value);
+const MARKET_IMAGES: Record<string, string> = {
+  "lynx-lite": "/images/market/gpu-rtx-4060.webp",
+  "purr-drive": "/images/market/gpu-radeon-rx-7900-xtx.jpg",
+  "meow-core": "/images/market/gpu-rtx-4090.jpg",
+  "lionheart-rack": "/images/market/gpu-mining-rig.jpg",
+  "purrstack-mini": "/images/market/server-rack-9u.jpg",
+  "whisker-tower": "/images/market/server-rack-24u.jpg",
+  "meow-cluster": "/images/market/gpu-rack-8.jpg",
+};
 
 type RoomAction = (action: (current: GameSave, time: number) => GameSave, success: string, upgradeTarget?: string) => void;
 type SharedProps = { save: GameSave | null; onAction: RoomAction };
@@ -182,7 +191,7 @@ export function MinerMarketScreen({ save, onAction }: SharedProps) {
             const installed = units.filter((unit) => unit.placed).length;
             const affordable = Boolean(save && save.balance >= miner.price);
             return <article className={`market-card panel ${units.length ? "market-owned" : ""}`} key={miner.id}>
-              <div className={`market-art market-art-${index}`}><div className="market-ring" /><Image src="/images/legion-cat-mascot-512.png" width={102} height={102} alt="" /><span className="market-power"><Zap size={12} /> +{miner.power} TH/s / UNIT</span></div>
+              <div className={`market-art market-art-${index} market-photo`}><div className="market-ring" /><Image className="market-product-image" src={MARKET_IMAGES[miner.id]} width={180} height={118} alt={`${miner.name} GPU`} /><span className="market-power"><Zap size={12} /> +{miner.power} TH/s / UNIT</span></div>
               <div className="market-card-body"><span className="item-type">{miner.label.toUpperCase()} · UNIT FISIK</span><h3>{miner.name}</h3><p>{miner.description} Unit baru masuk ke inventori, bukan otomatis dipasang.</p><div className="market-bottom"><span className="item-price"><Coins size={15} /> {formatNumber(miner.price)} <small>LC / UNIT</small></span><button className="buy-button" type="button" disabled={!save || !affordable} onClick={() => onAction((current, time) => purchaseMinerUnit(current, miner.id, time), `${miner.name} masuk inventori.`)}><Plus size={13} /> BELI UNIT</button></div>{units.length > 0 && <span className="owned-caption"><Check size={11} /> {units.length} UNIT · {installed} TERPASANG</span>}</div>
             </article>;
           })}
@@ -194,7 +203,7 @@ export function MinerMarketScreen({ save, onAction }: SharedProps) {
             const installed = units.filter((unit) => unit.placed).length;
             const affordable = Boolean(save && save.balance >= rack.price);
             return <article className={`market-card panel ${units.length ? "market-owned" : ""}`} key={rack.id}>
-              <div className={`market-art rack-market-art market-art-${index}`}><div className="market-ring" /><div className="rack-market-icon"><Server size={43} /><span>🐈</span></div><span className="market-power"><Zap size={12} /> +{formatNumber(rack.power)} TH/s · {rack.slots} SLOT</span></div>
+              <div className={`market-art rack-market-art market-art-${index} market-photo`}><div className="market-ring" /><div className="rack-market-icon"><Image className="market-product-image" src={MARKET_IMAGES[rack.id]} width={180} height={118} alt={`${rack.name} hardware`} /></div><span className="market-power"><Zap size={12} /> +{formatNumber(rack.power)} TH/s · {rack.slots} SLOT</span></div>
               <div className="market-card-body"><span className="item-type">{rack.label.toUpperCase()} · RACK FISIK</span><h3>{rack.name}</h3><p>{rack.description} Pasang rack dari Inventori agar power dan kapasitasnya aktif.</p><div className="market-bottom"><span className="item-price"><Coins size={15} /> {formatNumber(rack.price)} <small>LC / UNIT</small></span><button className="buy-button" type="button" disabled={!save || !affordable} onClick={() => onAction((current, time) => purchaseRackUnit(current, rack.id, time), `${rack.name} masuk inventori.`)}><Plus size={13} /> BELI RAK</button></div>{units.length > 0 && <span className="owned-caption"><Check size={11} /> {units.length} UNIT · {installed} TERPASANG</span>}</div>
             </article>;
           })}

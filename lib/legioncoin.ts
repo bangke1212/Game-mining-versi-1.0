@@ -38,16 +38,16 @@ export function getArcadeRewardEstimate(mode: ArcadeMode, score: number) {
 
 export const MINERS = [
   { id: "starter-cat", name: "Pawioneer Mk.I", label: "Rig pemula", power: 24, price: 0, description: "Rig mungil untuk mulai menggali hadiah virtual." },
-  { id: "lynx-lite", name: "Lynx Lite", label: "Miner hemat", power: 22, price: 90, description: "Tambahan power stabil untuk markas kecil." },
-  { id: "purr-drive", name: "PurrDrive 4K", label: "Miner modular", power: 58, price: 260, description: "Modul modular dengan pendingin kumis." },
-  { id: "meow-core", name: "MeowCore X", label: "Core berdaya tinggi", power: 145, price: 690, description: "Core kuat untuk markas berdaya tinggi." },
-  { id: "lionheart-rack", name: "Lionheart Rack", label: "Rig legendaris", power: 330, price: 1680, description: "Satu rig besar untuk para penjelajah berpengalaman." },
+  { id: "lynx-lite", name: "GeForce RTX 4060", label: "GPU entry-level", power: 22, price: 90, description: "GPU NVIDIA modern untuk upgrade awal yang hemat daya." },
+  { id: "purr-drive", name: "Radeon RX 7900 XTX", label: "GPU performa tinggi", power: 58, price: 260, description: "GPU AMD kelas atas untuk workload grafis dan simulasi berat." },
+  { id: "meow-core", name: "GeForce RTX 4090", label: "GPU flagship", power: 145, price: 690, description: "GPU NVIDIA flagship dengan performa tinggi untuk markas utama." },
+  { id: "lionheart-rack", name: "8-GPU Mining Rig", label: "Rig multi-GPU", power: 330, price: 1680, description: "Rangka terbuka untuk delapan GPU dan airflow maksimal." },
 ] as const;
 
 export const SERVER_RACKS = [
-  { id: "purrstack-mini", name: "PurrStack Mini", label: "Rak server pemula", power: 90, slots: 3, price: 460, description: "Rak 2U untuk tiga rig, dirakit Kapten Paw untuk markas baru." },
-  { id: "whisker-tower", name: "Whisker Tower", label: "Rak modular", power: 260, slots: 5, price: 1380, description: "Menara berpendingin senyap dengan lima slot rig tambahan." },
-  { id: "meow-cluster", name: "Meow Cluster 9", label: "Klaster endgame", power: 720, slots: 8, price: 3950, description: "Klaster server kucing dengan delapan slot untuk endgame." },
+  { id: "purrstack-mini", name: "StarTech 9U Open Rack", label: "Rak server pemula", power: 90, slots: 3, price: 460, description: "Rak terbuka 9U untuk perangkat awal dan airflow yang mudah dipantau." },
+  { id: "whisker-tower", name: "StarTech 24U Cabinet", label: "Kabinet server", power: 260, slots: 5, price: 1380, description: "Kabinet server 24U tertutup untuk lima unit rig dan kabel yang rapi." },
+  { id: "meow-cluster", name: "8-GPU Mining Chassis", label: "Chassis multi-GPU", power: 720, slots: 8, price: 3950, description: "Chassis mining berventilasi dengan delapan slot GPU untuk endgame." },
 ] as const;
 
 export type MinerUnit = { id: string; minerId: string; level: number; placed: boolean };
