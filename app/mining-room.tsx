@@ -90,7 +90,7 @@ function MinerInventoryCard({ unit, index, save, onAction, activeUpgradeTarget, 
   );
 }
 
-export function MinerRoomScreen({ save, onAction, activeUpgradeTarget, upgradeAnimationStyle, onOpenMarket, onOpenRacks, leagueName, dailyReward }: UpgradeProps & { onOpenMarket: () => void; onOpenRacks: () => void; leagueName: string; dailyReward: number }) {
+export function MinerRoomScreen({ save, onAction, activeUpgradeTarget, upgradeAnimationStyle, onOpenMarket, onOpenRacks, dailyReward }: UpgradeProps & { onOpenMarket: () => void; onOpenRacks: () => void; dailyReward: number }) {
   const placedMiners = save?.minerUnits.filter((unit) => unit.placed) || [];
   const placedRacks = save?.rackUnits.filter((unit) => unit.placed) || [];
   const inventoryMiners = save?.minerUnits.filter((unit) => !unit.placed) || [];
@@ -107,7 +107,7 @@ export function MinerRoomScreen({ save, onAction, activeUpgradeTarget, upgradeAn
         <article className="room-status-card room-status-electric"><span><BatteryCharging size={13} /> GRID VIRTUAL</span><b>100%</b><small>DAYA SIMULASI · TANPA PENALTI</small></article>
         <article className="room-status-card"><span><Zap size={13} /> POWER TERPASANG</span><b>{formatNumber(permanentPower)} <small>TH/s</small></b><small>{placedMiners.length} MINER · {placedRacks.length} RAK</small></article>
         <article className="room-status-card" aria-live="polite"><span><Server size={13} /> KAPASITAS RUANG</span><b>{placedMiners.length} <small>/ {capacity} SLOT</small></b><small>{freeSlots} SLOT TERSEDIA</small></article>
-        <article className="room-status-card"><span><Coins size={13} /> ESTIMASI HADIAH</span><b>{formatNumber(dailyReward, 2)} <small>LC/HARI</small></b><small>LIGA {leagueName.toUpperCase()} · POOL VIRTUAL</small></article>
+        <article className="room-status-card"><span><Coins size={13} /> ESTIMASI HADIAH</span><b>{formatNumber(dailyReward, 2)} <small>LC/HARI</small></b><small>HASIL SIMULASI · MAKS. 24 JAM OFFLINE</small></article>
       </div>
 
       <section className="physical-room panel" aria-label="Visual ruang mining LegionCoin">

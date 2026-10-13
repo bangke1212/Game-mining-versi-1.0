@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "LegionCoin — Tambang Virtual Paw Power",
-  description: "Game simulasi mining offline. Bangun rig virtual, mainkan Paw Rush, dan naiki liga bersama maskot kucing LegionCoin.",
+  description: "Game simulasi mining offline. Bangun rig virtual, mainkan Paw Rush, dan kembangkan markas bersama maskot kucing LegionCoin.",
   applicationName: "LegionCoin",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "LegionCoin" },

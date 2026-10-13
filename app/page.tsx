@@ -4,14 +4,14 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Activity, ArrowDownLeft, ArrowUpRight, Cat, Check, ChevronRight,
-  CircleHelp, Clock3, Coins, Cpu, Crown, Gamepad2, Gem, Home, LockKeyhole,
-  Menu, Pickaxe, RotateCcw, Server, ShieldCheck, ShoppingBag, Sparkles, Trophy, WifiOff, Zap,
+  CircleHelp, Clock3, Coins, Cpu, Gamepad2, Gem, Home, LockKeyhole,
+  Menu, Pickaxe, RotateCcw, Server, ShieldCheck, ShoppingBag, Sparkles, WifiOff, Zap,
 } from "lucide-react";
 import {
   addTemporaryPower, AVATAR_ACCESSORIES, AVATAR_COATS, ArcadeMode, AvatarCustomization,
   createInitialSave, DEFAULT_AVATAR, GameSave,
   getActiveTemporaryPower, getArcadeRewardEstimate, getHourlyReward, getLeague,
-  getPermanentPower, getPlayerShare, getUtcDayKey, grantArcadeReward,
+  getPermanentPower, getUtcDayKey, grantArcadeReward,
   MAX_ARCADE_REWARD_PER_DAY, MIN_PAW_RUSH_BOOST_SCORE,
   normalizeSave, SAVE_KEY, settleOffline,
 } from "@/lib/legioncoin";
@@ -21,12 +21,6 @@ import { MinerMarketScreen, MinerRoomScreen, ServerRackBayScreen } from "./minin
 
 const formatNumber = (value: number, digits = 0) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value);
 
-const RIVALS = [
-  { name: "MochiMancer", icon: "🐈", offset: 1.32 },
-  { name: "Kapten Kumis", icon: "🐱", offset: 0.94 },
-  { name: "BuluNebula", icon: "🐈‍⬛", offset: 0.73 },
-  { name: "PawPilot", icon: "🐾", offset: 0.48 },
-];
 
 export default function HomePage() {
   const [save, setSave] = useState<GameSave | null>(null);
@@ -200,13 +194,10 @@ export default function HomePage() {
   const permanentPower = save ? getPermanentPower(save) : 0;
   const temporaryPower = save ? getActiveTemporaryPower(save, now) : 0;
   const totalPower = permanentPower + temporaryPower;
-  const { league, index: leagueIndex, next: nextLeague } = getLeague(permanentPower);
+  const { index: leagueIndex } = getLeague(permanentPower);
   const hourlyReward = getHourlyReward(totalPower, leagueIndex);
   const dailyReward = hourlyReward * 24;
-  const poolShare = getPlayerShare(totalPower, leagueIndex);
-  const progressToLeague = nextLeague ? Math.min(100, ((permanentPower - league.minPower) / (nextLeague.minPower - league.minPower)) * 100) : 100;
   const arcadeEarnedToday = save?.arcadeRewardDay === getUtcDayKey(now) ? save.arcadeCoinsToday : 0;
-  const rankEstimate = Math.max(1, Math.min(99, Math.round(4 + (1 - poolShare) * 18)));
   const avatarCustomization = save?.avatar || DEFAULT_AVATAR;
   const selectedCoat = AVATAR_COATS.find((option) => option.id === avatarCustomization.coat) || AVATAR_COATS[0];
   const selectedAccessory = AVATAR_ACCESSORIES.find((option) => option.id === avatarCustomization.accessory) || AVATAR_ACCESSORIES[0];
@@ -280,7 +271,6 @@ export default function HomePage() {
     { id: "arcade", label: "Arcade", icon: Gamepad2 },
     { id: "rigs", label: "Ruang Miner", icon: Cpu },
     { id: "racks", label: "Rak Server", icon: Server },
-    { id: "league", label: "Liga & Pool", icon: Trophy },
     { id: "market", label: "Pasar Rig & Rak", icon: ShoppingBag },
     { id: "wallet", label: "Dompet Virtual", icon: Coins },
   ];
@@ -304,7 +294,7 @@ export default function HomePage() {
         <div className="side-divider" />
         <div className="sidebar-cat">
           <CatAvatar customization={avatarCustomization} size={128} className="cat-avatar-sidebar" alt="" />
-          <p>“Satu paw lagi, satu liga lebih tinggi.”</p>
+          <p>“Satu paw lagi, satu upgrade lebih tinggi.”</p>
           <span><i /> SISTEM VIRTUAL AKTIF</span>
         </div>
         <div className="side-bottom">
@@ -331,7 +321,7 @@ export default function HomePage() {
         <div ref={screenContentRef} className="content-wrap" role="region" aria-label={`Modul ${activeNavLabel}`} tabIndex={-1}>
           {activeSection === "dashboard" && <section className="module-screen dashboard-screen" id="dashboard">
           <section className="welcome-row">
-            <div><p className="eyebrow"><span className="eyebrow-star">✦</span> SELAMAT DATANG DI LEGION OUTPOST</p><h1>Tambang virtual.<br /><em>Petualangan nyata.</em></h1><p className="welcome-copy">Mainkan mini-game, kumpulkan power, dan naiki liga bersama kru kucingmu.</p></div>
+            <div><p className="eyebrow"><span className="eyebrow-star">✦</span> SELAMAT DATANG DI LEGION OUTPOST</p><h1>Tambang virtual.<br /><em>Petualangan nyata.</em></h1><p className="welcome-copy">Mainkan mini-game, kumpulkan power, dan kembangkan markas tambang kucingmu.</p></div>
             <div className="mascot-hero"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><span className="hero-glow" /><CatAvatar customization={avatarCustomization} size={300} className="cat-avatar-hero" alt={`Avatar kucing ${selectedCoat.label}`} priority /><span className="mascot-caption"><Sparkles size={13} /> KAPTEN PAW</span></div>
             <div className="offline-banner"><ShieldCheck size={17} /><span><b>{storageAvailable ? "SEMUA VIRTUAL, SEMUA MILIK SAVE LOKAL" : "PENYIMPANAN BROWSER TIDAK TERSEDIA"}</b><small>{storageAvailable ? "Tidak ada crypto sungguhan, akun online, atau transaksi jaringan." : "Progres hanya tersimpan selama halaman ini tetap terbuka."}</small></span><LockKeyhole size={15} className="banner-lock" /></div>
           </section>
@@ -339,8 +329,7 @@ export default function HomePage() {
           <section className="stats-row" aria-label="Statistik permainan">
             <article className="stat-card wallet-stat"><div className="stat-top"><span>SALDO DOMPET</span><Coins size={16} /></div><strong>{formatNumber(save?.balance || 0, 2)} <small>LC</small></strong><p><span className="tiny-dot gold-dot" /> LegionCoin virtual</p><div className="stat-line"><span>{storageAvailable ? "DISIMPAN DI BROWSER" : "HANYA SESI INI"}</span><LockKeyhole size={12} /></div></article>
             <article className="stat-card power-stat"><div className="stat-top"><span>MINING POWER</span><Zap size={16} /></div><strong>{formatNumber(totalPower)} <small>TH/s</small></strong><p><span className="tiny-dot green-dot" /> {formatNumber(permanentPower)} permanen {temporaryPower > 0 ? `· +${formatNumber(temporaryPower)} sementara` : "· rig aktif"}</p><div className="stat-line"><span>POWER SEMENTARA {temporaryPower > 0 ? "AKTIF" : "SIAP DIISI"}</span><Activity size={12} /></div></article>
-            <article className="stat-card yield-stat"><div className="stat-top"><span>ESTIMASI HADIAH</span><Gem size={16} /></div><strong>{formatNumber(dailyReward, 2)} <small>LC / hari</small></strong><p><span className="tiny-dot blue-dot" /> Bagi hasil pool liga simulasi</p><div className="stat-line"><span>MAKS. PROGRES OFFLINE 24 JAM</span><Clock3 size={12} /></div></article>
-            <article className="stat-card league-stat"><div className="stat-top"><span>LIGA SAAT INI</span><Trophy size={16} /></div><strong>{league.name}<small> · #{rankEstimate}</small></strong><p><span className="tiny-dot orange-dot" /> Peringkat dari power permanen</p><div className="stat-line"><span>{nextLeague ? `${formatNumber(Math.max(0, nextLeague.minPower - permanentPower))} TH/s KE LIGA ${nextLeague.name.toUpperCase()}` : "PUNCAK LIGA TERCAPAI"}</span><ChevronRight size={12} /></div></article>
+            <article className="stat-card yield-stat"><div className="stat-top"><span>ESTIMASI HADIAH</span><Gem size={16} /></div><strong>{formatNumber(dailyReward, 2)} <small>LC / hari</small></strong><p><span className="tiny-dot blue-dot" /> Reward simulasi lokal</p><div className="stat-line"><span>MAKS. PROGRES OFFLINE 24 JAM</span><Clock3 size={12} /></div></article>
           </section>
 
           <section className="play-panel panel" aria-label="Terminal arcade LegionCoin">
@@ -349,7 +338,7 @@ export default function HomePage() {
           </section>
 
           <section className="quick-access">
-            <div className="quick-access-heading"><div><span className="section-label"><Sparkles size={13} /> RUANG TERPISAH</span><h2>Pilih <span>modulmu</span></h2></div><p>Setiap tombol membuka satu bagan khusus, bukan menggulir seluruh markas.</p></div>
+            <div className="quick-access-heading"><div><span className="section-label"><Sparkles size={13} /> RUANG TERPISAH</span><h2>Pilih <span>modulmu</span></h2></div><p>Setiap tombol membuka satu ruang khusus, bukan menggulir seluruh markas.</p></div>
             <div className="quick-access-grid">{navItems.filter((item) => item.id !== "dashboard").map(({ id, label, icon: Icon }, index) => <button className="quick-access-card" key={id} type="button" onClick={() => selectSection(id)}><span className="quick-access-icon"><Icon size={18} /></span><span className="quick-access-copy"><b>{label}</b><small>BUKA RUANG 0{index + 1}</small></span><ChevronRight size={15} /></button>)}</div>
           </section>
           </section>}
@@ -373,29 +362,14 @@ export default function HomePage() {
                   <div className="avatar-control-heading"><div><span className="section-label">02 / DETAIL TAMBAHAN</span><h3 id="avatar-accessory-title">Pilih aksesori</h3></div><small>{AVATAR_ACCESSORIES.length} GAYA</small></div>
                   <div className="avatar-option-grid avatar-accessory-grid">{AVATAR_ACCESSORIES.map((accessory) => <button key={accessory.id} className={`avatar-option avatar-accessory-option ${avatarCustomization.accessory === accessory.id ? "avatar-option-active" : ""}`} type="button" aria-pressed={avatarCustomization.accessory === accessory.id} onClick={() => updateAvatar({ accessory: accessory.id })}><span className="avatar-accessory-symbol">{accessory.symbol || "✧"}</span><span className="avatar-option-name">{accessory.label}</span></button>)}</div>
                 </section>
-                <p className="avatar-cosmetic-disclaimer"><Check size={13} /> Hanya kosmetik; pilihan ini tidak mengubah LC, power, hadiah, atau progres liga.</p>
+                <p className="avatar-cosmetic-disclaimer"><Check size={13} /> Hanya kosmetik; pilihan ini tidak mengubah LC, power, hadiah, atau progres game.</p>
               </div>
             </section>
           </section>}
 
           {activeSection === "arcade" && <section className="module-screen"><div className="module-screen-heading"><p className="eyebrow">MODUL 01 / PERMAINAN SAMPINGAN</p><h1>Arcade <span>LegionCoin</span></h1><p>Ruang bermain mandiri untuk mendapatkan bonus LC virtual. Selesaikan sesi di layar ini untuk mengklaim hadiah.</p></div><ArcadeHub dailyEarned={arcadeEarnedToday} dailyLimit={MAX_ARCADE_REWARD_PER_DAY} avatar={avatarCustomization} playerName={save?.playerName || "Penjelajah Paw"} onComplete={completeArcade} /></section>}
 
-          {activeSection === "rigs" && <MinerRoomScreen save={save} onAction={runAction} activeUpgradeTarget={upgradeEffect?.target} upgradeAnimationStyle={upgradeAnimationStyle} onOpenMarket={() => selectSection("market")} onOpenRacks={() => selectSection("racks")} leagueName={league.name} dailyReward={dailyReward} />}
-
-          {activeSection === "league" && <section className="module-screen rigs-screen">
-            <div className="section-heading" id="league"><div><p className="eyebrow">MODUL 05 / TANGGA PERINGKAT</p><h2>Liga &amp; <span>pool</span></h2></div><span className="count-chip"><Trophy size={13} /> {league.name.toUpperCase()} · PERINGKAT #{rankEstimate}</span></div>
-            <section className="rigs-layout rigs-layout-single">
-              <aside className="league-card panel">
-                <div className="league-card-head"><div><span className="section-label">TANGGA PERINGKAT</span><h3>Jalur liga</h3></div><span className={`league-emblem emblem-${league.color}`}><Crown size={18} /></span></div>
-                <div className={`league-banner league-${league.color}`}><span className="league-small">LIGA SAAT INI</span><strong>{league.name}</strong><span className="league-icon">{leagueIndex + 1 < 3 ? "✦" : "✧"}</span></div>
-                <div className="league-progress-label"><span>POWER PERMANEN</span><b>{formatNumber(permanentPower)} TH/s</b></div><div className="league-progress"><span style={{ width: `${progressToLeague}%` }} /></div>
-                <p className="league-next">{nextLeague ? <><b>{formatNumber(Math.max(0, nextLeague.minPower - permanentPower))} TH/s</b> lagi ke Liga {nextLeague.name}</> : "Kamu sudah mencapai liga tertinggi!"}</p>
-                <div className="league-divider" /><div className="pool-info"><div><span>POOL LIGA / HARI</span><b>{formatNumber(league.dailyPool)} <small>LC</small></b></div><div><span>PORSI POWER-MU</span><b>{formatNumber(poolShare * 100, 2)}<small>%</small></b></div></div>
-                <p className="simulation-note"><Activity size={13} /> Pool dan rival dihitung secara simulasi lokal. Power sementara menambah porsi, tetapi tidak menaikkan liga.</p>
-              </aside>
-            </section>
-            <section className="rivals-card panel league-rivals-card"><div className="panel-header"><div><span className="section-label">SIMULASI LOKAL</span><h3>Rival satu liga</h3></div><span className="npc-label"><Activity size={12} /> NPC</span></div><p className="rivals-intro">Nama dan power berikut adalah karakter bot lokal—bukan leaderboard pemain sungguhan.</p><div className="rival-list">{RIVALS.map((rival, index) => <div className="rival-row" key={rival.name}><span className="rival-rank">0{index + 1}</span><span className="rival-avatar">{rival.icon}</span><b>{rival.name}</b><span className="rival-power">{formatNumber(Math.max(12, league.rivalPower * rival.offset))} TH/s</span><div className="rival-bar"><span style={{ width: `${Math.min(100, rival.offset * 53)}%` }} /></div></div>)}</div></section>
-          </section>}
+          {activeSection === "rigs" && <MinerRoomScreen save={save} onAction={runAction} activeUpgradeTarget={upgradeEffect?.target} upgradeAnimationStyle={upgradeAnimationStyle} onOpenMarket={() => selectSection("market")} onOpenRacks={() => selectSection("racks")} dailyReward={dailyReward} />}
 
           {activeSection === "racks" && <ServerRackBayScreen save={save} onAction={runAction} activeUpgradeTarget={upgradeEffect?.target} upgradeAnimationStyle={upgradeAnimationStyle} onOpenMarket={() => selectSection("market")} onOpenRoom={() => selectSection("rigs")} />}
 
