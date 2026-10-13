@@ -4,6 +4,7 @@ export const TEMP_POWER_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 export const MAX_ARCADE_REWARD_PER_DAY = 40;
 export const MAX_ITEM_LEVEL = 99;
 export const MIN_PAW_RUSH_BOOST_SCORE = 5;
+export const STARTER_ROOM_SLOTS = 6;
 export type ArcadeMode = "paw-rush" | "coin-catch" | "memory-mine";
 
 export const AVATAR_COATS = [
@@ -39,14 +40,17 @@ export const MINERS = [
   { id: "lynx-lite", name: "Lynx Lite", label: "Miner hemat", power: 22, price: 90, description: "Tambahan power stabil untuk markas kecil." },
   { id: "purr-drive", name: "PurrDrive 4K", label: "Miner modular", power: 58, price: 260, description: "Modul modular dengan pendingin kumis." },
   { id: "meow-core", name: "MeowCore X", label: "Core berdaya tinggi", power: 145, price: 690, description: "Core kuat untuk bersaing di liga lebih tinggi." },
-  { id: "lionheart-rack", name: "Lionheart Rack", label: "Rak legendaris", power: 330, price: 1680, description: "Satu rak besar untuk para penjelajah berpengalaman." },
+  { id: "lionheart-rack", name: "Lionheart Rack", label: "Rig legendaris", power: 330, price: 1680, description: "Satu rig besar untuk para penjelajah berpengalaman." },
 ] as const;
 
 export const SERVER_RACKS = [
-  { id: "purrstack-mini", name: "PurrStack Mini", label: "Rak server pemula", power: 90, price: 460, description: "Rak 2U yang dirakit Kapten Paw untuk markas baru." },
-  { id: "whisker-tower", name: "Whisker Tower", label: "Rak modular", power: 260, price: 1380, description: "Menara berpendingin senyap dengan ruang untuk rig tambahan." },
-  { id: "meow-cluster", name: "Meow Cluster 9", label: "Klaster endgame", power: 720, price: 3950, description: "Klaster server kucing berdaya besar untuk liga puncak." },
+  { id: "purrstack-mini", name: "PurrStack Mini", label: "Rak server pemula", power: 90, slots: 3, price: 460, description: "Rak 2U untuk tiga rig, dirakit Kapten Paw untuk markas baru." },
+  { id: "whisker-tower", name: "Whisker Tower", label: "Rak modular", power: 260, slots: 5, price: 1380, description: "Menara berpendingin senyap dengan lima slot rig tambahan." },
+  { id: "meow-cluster", name: "Meow Cluster 9", label: "Klaster endgame", power: 720, slots: 8, price: 3950, description: "Klaster server kucing dengan delapan slot untuk liga puncak." },
 ] as const;
+
+export type MinerUnit = { id: string; minerId: string; level: number; placed: boolean };
+export type RackUnit = { id: string; rackId: string; level: number; placed: boolean };
 
 export type Activity = {
   id: string;
@@ -58,13 +62,13 @@ export type Activity = {
 };
 
 export type GameSave = {
-  version: 3;
+  version: 4;
   playerName: string;
   balance: number;
   xp: number;
   avatar: AvatarCustomization;
-  minerLevels: Record<string, number>;
-  rackLevels: Record<string, number>;
+  minerUnits: MinerUnit[];
+  rackUnits: RackUnit[];
   temporaryPower: number;
   temporaryPowerExpiresAt: number;
   lastSeenAt: number;
@@ -79,13 +83,13 @@ export function getUtcDayKey(now = Date.now()) {
 
 export function createInitialSave(now = Date.now()): GameSave {
   return {
-    version: 3,
+    version: 4,
     playerName: "Penjelajah Paw",
     balance: 120,
     xp: 0,
     avatar: { ...DEFAULT_AVATAR },
-    minerLevels: { "starter-cat": 1 },
-    rackLevels: {},
+    minerUnits: [{ id: "starter-cat-initial", minerId: "starter-cat", level: 1, placed: true }],
+    rackUnits: [],
     temporaryPower: 0,
     temporaryPowerExpiresAt: 0,
     lastSeenAt: now,
@@ -95,44 +99,119 @@ export function createInitialSave(now = Date.now()): GameSave {
   };
 }
 
+function recordOf(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function safeUnitId(raw: unknown, fallback: string, used: Set<string>) {
+  const candidate = typeof raw === "string" && /^[a-zA-Z0-9_-]{1,96}$/.test(raw) ? raw : fallback;
+  let id = candidate;
+  let suffix = 2;
+  while (used.has(id)) id = `${fallback}-${suffix++}`;
+  used.add(id);
+  return id;
+}
+
+function normalizeMinerUnits(value: unknown): MinerUnit[] {
+  if (!Array.isArray(value)) return [];
+  const used = new Set<string>();
+  return value.flatMap((entry, index) => {
+    const raw = recordOf(entry);
+    const miner = MINERS.find((item) => item.id === raw?.minerId);
+    if (!raw || !miner) return [];
+    const parsedLevel = Number(raw.level);
+    const level = Number.isFinite(parsedLevel) ? Math.max(1, Math.min(MAX_ITEM_LEVEL, Math.floor(parsedLevel))) : 1;
+    const fallback = `miner-${miner.id}-${index + 1}`;
+    return [{ id: safeUnitId(raw.id, fallback, used), minerId: miner.id, level, placed: raw.placed === true }];
+  });
+}
+
+function normalizeRackUnits(value: unknown): RackUnit[] {
+  if (!Array.isArray(value)) return [];
+  const used = new Set<string>();
+  return value.flatMap((entry, index) => {
+    const raw = recordOf(entry);
+    const rack = SERVER_RACKS.find((item) => item.id === raw?.rackId);
+    if (!raw || !rack) return [];
+    const parsedLevel = Number(raw.level);
+    const level = Number.isFinite(parsedLevel) ? Math.max(1, Math.min(MAX_ITEM_LEVEL, Math.floor(parsedLevel))) : 1;
+    const fallback = `rack-${rack.id}-${index + 1}`;
+    return [{ id: safeUnitId(raw.id, fallback, used), rackId: rack.id, level, placed: raw.placed === true }];
+  });
+}
+
+function migrateLegacyMinerUnits(levels: unknown): MinerUnit[] {
+  const legacy = recordOf(levels);
+  if (!legacy) return [];
+  return MINERS.flatMap((miner) => {
+    const parsedLevel = Number(legacy[miner.id] || 0);
+    if (!Number.isFinite(parsedLevel) || parsedLevel <= 0) return [];
+    return [{ id: `legacy-miner-${miner.id}`, minerId: miner.id, level: Math.max(1, Math.min(MAX_ITEM_LEVEL, Math.floor(parsedLevel))), placed: true }];
+  });
+}
+
+function migrateLegacyRackUnits(levels: unknown): RackUnit[] {
+  const legacy = recordOf(levels);
+  if (!legacy) return [];
+  return SERVER_RACKS.flatMap((rack) => {
+    const parsedLevel = Number(legacy[rack.id] || 0);
+    if (!Number.isFinite(parsedLevel) || parsedLevel <= 0) return [];
+    return [{ id: `legacy-rack-${rack.id}`, rackId: rack.id, level: Math.max(1, Math.min(MAX_ITEM_LEVEL, Math.floor(parsedLevel))), placed: true }];
+  });
+}
+
 export function normalizeSave(value: unknown, now = Date.now()): GameSave {
   const initial = createInitialSave(now);
-  if (!value || typeof value !== "object") return initial;
-  const data = value as Omit<Partial<GameSave>, "version"> & { version?: number; minerLevels?: Record<string, number>; rackLevels?: Record<string, number>; avatar?: Partial<AvatarCustomization> };
-  if ((data.version !== 1 && data.version !== 2 && data.version !== 3) || !data.minerLevels || typeof data.minerLevels !== "object") return initial;
+  const data = recordOf(value);
+  if (!data) return initial;
+  const version = Number(data.version);
+  if (![1, 2, 3, 4].includes(version)) return initial;
 
-  const minerLevels: Record<string, number> = {};
-  for (const miner of MINERS) {
-    const level = Number(data.minerLevels[miner.id] || 0);
-    if (Number.isFinite(level) && level > 0) minerLevels[miner.id] = Math.min(MAX_ITEM_LEVEL, Math.floor(level));
+  let minerUnits = version === 4 && Array.isArray(data.minerUnits)
+    ? normalizeMinerUnits(data.minerUnits)
+    : migrateLegacyMinerUnits(data.minerLevels);
+  let rackUnits = version === 4 && Array.isArray(data.rackUnits)
+    ? normalizeRackUnits(data.rackUnits)
+    : migrateLegacyRackUnits(data.rackLevels);
+  if (!minerUnits.some((unit) => unit.minerId === "starter-cat")) {
+    minerUnits = [{ id: "starter-cat-recovered", minerId: "starter-cat", level: 1, placed: true }, ...minerUnits];
   }
-  if (!minerLevels["starter-cat"]) minerLevels["starter-cat"] = 1;
-
-  const rackLevels: Record<string, number> = {};
-  for (const rack of SERVER_RACKS) {
-    const level = Number(data.rackLevels?.[rack.id] || 0);
-    if (Number.isFinite(level) && level > 0) rackLevels[rack.id] = Math.min(MAX_ITEM_LEVEL, Math.floor(level));
-  }
+  const roomCapacity = STARTER_ROOM_SLOTS + rackUnits.reduce((slots, unit) => {
+    if (!unit.placed) return slots;
+    return slots + (SERVER_RACKS.find((item) => item.id === unit.rackId)?.slots || 0);
+  }, 0);
+  let occupiedSlots = 0;
+  minerUnits = [...minerUnits]
+    .sort((a, b) => Number(b.minerId === "starter-cat") - Number(a.minerId === "starter-cat"))
+    .map((unit) => {
+      if (!unit.placed) return unit;
+      if (occupiedSlots < roomCapacity) {
+        occupiedSlots += 1;
+        return unit;
+      }
+      return { ...unit, placed: false };
+    });
 
   const activity = Array.isArray(data.activity)
-    ? data.activity.filter((item): item is Activity => Boolean(item && typeof item === "object" && typeof item.title === "string" && typeof item.detail === "string" && typeof item.at === "number" && ["reward", "purchase", "upgrade", "boost", "arcade"].includes((item as Activity).kind))).slice(0, 10)
+    ? data.activity.filter((item): item is Activity => Boolean(item && typeof item === "object" && typeof (item as Activity).title === "string" && typeof (item as Activity).detail === "string" && typeof (item as Activity).at === "number" && ["reward", "purchase", "upgrade", "boost", "arcade"].includes((item as Activity).kind))).slice(0, 10)
     : initial.activity;
   const today = getUtcDayKey(now);
   const arcadeRewardDay = typeof data.arcadeRewardDay === "string" ? data.arcadeRewardDay : today;
   const arcadeCoinsToday = arcadeRewardDay === today && Number.isFinite(Number(data.arcadeCoinsToday))
     ? Math.max(0, Math.min(MAX_ARCADE_REWARD_PER_DAY, Number(data.arcadeCoinsToday)))
     : 0;
-  const coat = AVATAR_COATS.find((option) => option.id === data.avatar?.coat)?.id || DEFAULT_AVATAR.coat;
-  const accessory = AVATAR_ACCESSORIES.find((option) => option.id === data.avatar?.accessory)?.id || DEFAULT_AVATAR.accessory;
+  const avatar = recordOf(data.avatar);
+  const coat = AVATAR_COATS.find((option) => option.id === avatar?.coat)?.id || DEFAULT_AVATAR.coat;
+  const accessory = AVATAR_ACCESSORIES.find((option) => option.id === avatar?.accessory)?.id || DEFAULT_AVATAR.accessory;
 
   return {
-    version: 3,
+    version: 4,
     playerName: typeof data.playerName === "string" ? data.playerName.slice(0, 24) : initial.playerName,
     balance: Number.isFinite(Number(data.balance)) ? Math.max(0, Number(data.balance)) : initial.balance,
     xp: Number.isFinite(Number(data.xp)) ? Math.max(0, Number(data.xp)) : 0,
     avatar: { coat, accessory },
-    minerLevels,
-    rackLevels,
+    minerUnits,
+    rackUnits,
     temporaryPower: Number.isFinite(Number(data.temporaryPower)) ? Math.max(0, Number(data.temporaryPower)) : 0,
     temporaryPowerExpiresAt: Number.isFinite(Number(data.temporaryPowerExpiresAt)) ? Number(data.temporaryPowerExpiresAt) : 0,
     lastSeenAt: Number.isFinite(Number(data.lastSeenAt)) ? Number(data.lastSeenAt) : now,
@@ -142,9 +221,25 @@ export function normalizeSave(value: unknown, now = Date.now()): GameSave {
   };
 }
 
+export function getRoomSlotCapacity(save: GameSave): number {
+  return STARTER_ROOM_SLOTS + save.rackUnits.reduce((slots, unit) => {
+    if (!unit.placed) return slots;
+    const rack = SERVER_RACKS.find((item) => item.id === unit.rackId);
+    return slots + (rack?.slots || 0);
+  }, 0);
+}
+
 export function getPermanentPower(save: GameSave): number {
-  const minerPower = MINERS.reduce((sum, miner) => sum + miner.power * (save.minerLevels[miner.id] || 0), 0);
-  const rackPower = SERVER_RACKS.reduce((sum, rack) => sum + rack.power * (save.rackLevels[rack.id] || 0), 0);
+  const minerPower = save.minerUnits.reduce((sum, unit) => {
+    if (!unit.placed) return sum;
+    const miner = MINERS.find((item) => item.id === unit.minerId);
+    return sum + (miner?.power || 0) * unit.level;
+  }, 0);
+  const rackPower = save.rackUnits.reduce((sum, unit) => {
+    if (!unit.placed) return sum;
+    const rack = SERVER_RACKS.find((item) => item.id === unit.rackId);
+    return sum + (rack?.power || 0) * unit.level;
+  }, 0);
   return minerPower + rackPower;
 }
 
@@ -183,7 +278,13 @@ function addActivity(save: GameSave, entry: Omit<Activity, "id" | "at">, now: nu
 }
 
 export function settleOffline(save: GameSave, now = Date.now()) {
-  const next: GameSave = { ...save, minerLevels: { ...save.minerLevels }, rackLevels: { ...save.rackLevels }, activity: [...save.activity] };
+  const next: GameSave = {
+    ...save,
+    avatar: { ...save.avatar },
+    minerUnits: save.minerUnits.map((unit) => ({ ...unit })),
+    rackUnits: save.rackUnits.map((unit) => ({ ...unit })),
+    activity: [...save.activity],
+  };
   const elapsed = Math.max(0, Math.min(MAX_OFFLINE_SECONDS, (now - save.lastSeenAt) / 1000));
   if (elapsed > 0) {
     const { index } = getLeague(getPermanentPower(save));
@@ -212,43 +313,121 @@ export function getUpgradeCost(itemId: string, currentLevel: number) {
   return Math.max(45, Math.round(upgradeBasePrice * (0.72 + currentLevel * 0.62)));
 }
 
-export function buyOrUpgradeMiner(save: GameSave, minerId: string, now = Date.now()): GameSave {
+function makeUnitId(kind: "miner" | "rack", catalogId: string, now: number, existing: Set<string>) {
+  let id = `${kind}-${catalogId}-${now.toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  while (existing.has(id)) id = `${kind}-${catalogId}-${now.toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return id;
+}
+
+export function purchaseMinerUnit(save: GameSave, minerId: string, now = Date.now()): GameSave {
   const next = settleOffline(save, now);
   const miner = MINERS.find((item) => item.id === minerId);
   if (!miner) throw new Error("Miner tidak ditemukan.");
-  const currentLevel = next.minerLevels[minerId] || 0;
-  if (currentLevel >= MAX_ITEM_LEVEL) throw new Error(`${miner.name} sudah mencapai level maksimum ${MAX_ITEM_LEVEL}.`);
-  const price = currentLevel > 0 ? getUpgradeCost(minerId, currentLevel) : miner.price;
-  if (next.balance < price) throw new Error("Saldo LegionCoin belum cukup.");
-  next.balance = round2(next.balance - price);
-  next.minerLevels[minerId] = currentLevel + 1;
-  next.xp += Math.max(10, Math.floor(price / 2));
+  if (next.balance < miner.price) throw new Error("Saldo LegionCoin belum cukup.");
+  const existing = new Set(next.minerUnits.map((unit) => unit.id));
+  const unit: MinerUnit = { id: makeUnitId("miner", minerId, now, existing), minerId, level: 1, placed: false };
+  next.balance = round2(next.balance - miner.price);
+  next.minerUnits.push(unit);
+  next.xp += Math.max(10, Math.floor(miner.price / 2));
   addActivity(next, {
-    title: currentLevel > 0 ? `${miner.name} ditingkatkan` : `${miner.name} dibeli`,
-    detail: `Power permanen +${miner.power} TH/s · ${price.toLocaleString("id-ID")} LC`,
-    amount: -price,
-    kind: currentLevel > 0 ? "upgrade" : "purchase",
+    title: `${miner.name} ditambahkan ke inventori`,
+    detail: `Unit baru · power +${miner.power} TH/s setelah dipasang · ${miner.price.toLocaleString("id-ID")} LC`,
+    amount: -miner.price,
+    kind: "purchase",
   }, now);
   return next;
 }
 
-export function buyOrUpgradeRack(save: GameSave, rackId: string, now = Date.now()): GameSave {
+export function upgradeMinerUnit(save: GameSave, unitId: string, now = Date.now()): GameSave {
+  const next = settleOffline(save, now);
+  const index = next.minerUnits.findIndex((unit) => unit.id === unitId);
+  if (index < 0) throw new Error("Unit miner tidak ditemukan di inventori.");
+  const unit = next.minerUnits[index];
+  const miner = MINERS.find((item) => item.id === unit.minerId);
+  if (!miner) throw new Error("Tipe miner tidak ditemukan.");
+  if (unit.level >= MAX_ITEM_LEVEL) throw new Error(`${miner.name} sudah mencapai level maksimum ${MAX_ITEM_LEVEL}.`);
+  const price = getUpgradeCost(miner.id, unit.level);
+  if (next.balance < price) throw new Error("Saldo LegionCoin belum cukup.");
+  next.balance = round2(next.balance - price);
+  next.minerUnits[index] = { ...unit, level: unit.level + 1 };
+  next.xp += Math.max(10, Math.floor(price / 2));
+  addActivity(next, {
+    title: `${miner.name} ditingkatkan`,
+    detail: `Unit LV.${unit.level} → LV.${unit.level + 1} · power +${miner.power} TH/s · ${price.toLocaleString("id-ID")} LC`,
+    amount: -price,
+    kind: "upgrade",
+  }, now);
+  return next;
+}
+
+export function setMinerUnitPlaced(save: GameSave, unitId: string, placed: boolean, now = Date.now()): GameSave {
+  const next = settleOffline(save, now);
+  const index = next.minerUnits.findIndex((unit) => unit.id === unitId);
+  if (index < 0) throw new Error("Unit miner tidak ditemukan di inventori.");
+  const unit = next.minerUnits[index];
+  if (unit.placed === placed) return next;
+  if (placed) {
+    const installedCount = next.minerUnits.filter((item) => item.placed).length;
+    if (installedCount >= getRoomSlotCapacity(next)) throw new Error("Slot ruang penuh. Pasang rak server tambahan dari inventori atau Pasar.");
+  }
+  next.minerUnits[index] = { ...unit, placed };
+  return next;
+}
+
+export function purchaseRackUnit(save: GameSave, rackId: string, now = Date.now()): GameSave {
   const next = settleOffline(save, now);
   const rack = SERVER_RACKS.find((item) => item.id === rackId);
   if (!rack) throw new Error("Rak server tidak ditemukan.");
-  const currentLevel = next.rackLevels[rackId] || 0;
-  if (currentLevel >= MAX_ITEM_LEVEL) throw new Error(`${rack.name} sudah mencapai level maksimum ${MAX_ITEM_LEVEL}.`);
-  const price = currentLevel > 0 ? getUpgradeCost(rackId, currentLevel) : rack.price;
-  if (next.balance < price) throw new Error("Saldo LegionCoin belum cukup untuk rak server.");
+  if (next.balance < rack.price) throw new Error("Saldo LegionCoin belum cukup untuk rak server.");
+  const existing = new Set(next.rackUnits.map((unit) => unit.id));
+  const unit: RackUnit = { id: makeUnitId("rack", rackId, now, existing), rackId, level: 1, placed: false };
+  next.balance = round2(next.balance - rack.price);
+  next.rackUnits.push(unit);
+  next.xp += Math.max(15, Math.floor(rack.price / 2));
+  addActivity(next, {
+    title: `${rack.name} ditambahkan ke inventori`,
+    detail: `Rak virtual · ${rack.slots} slot dan +${rack.power} TH/s setelah dipasang · ${rack.price.toLocaleString("id-ID")} LC`,
+    amount: -rack.price,
+    kind: "purchase",
+  }, now);
+  return next;
+}
+
+export function upgradeRackUnit(save: GameSave, unitId: string, now = Date.now()): GameSave {
+  const next = settleOffline(save, now);
+  const index = next.rackUnits.findIndex((unit) => unit.id === unitId);
+  if (index < 0) throw new Error("Unit rak tidak ditemukan di inventori.");
+  const unit = next.rackUnits[index];
+  const rack = SERVER_RACKS.find((item) => item.id === unit.rackId);
+  if (!rack) throw new Error("Tipe rak tidak ditemukan.");
+  if (unit.level >= MAX_ITEM_LEVEL) throw new Error(`${rack.name} sudah mencapai level maksimum ${MAX_ITEM_LEVEL}.`);
+  const price = getUpgradeCost(rack.id, unit.level);
+  if (next.balance < price) throw new Error("Saldo LegionCoin belum cukup untuk upgrade rak.");
   next.balance = round2(next.balance - price);
-  next.rackLevels[rackId] = currentLevel + 1;
+  next.rackUnits[index] = { ...unit, level: unit.level + 1 };
   next.xp += Math.max(15, Math.floor(price / 2));
   addActivity(next, {
-    title: currentLevel > 0 ? `${rack.name} di-upgrade` : `${rack.name} dibeli`,
-    detail: `Power server permanen +${rack.power} TH/s · ${price.toLocaleString("id-ID")} LC`,
+    title: `${rack.name} di-upgrade`,
+    detail: `Rak LV.${unit.level} → LV.${unit.level + 1} · power +${rack.power} TH/s · ${price.toLocaleString("id-ID")} LC`,
     amount: -price,
-    kind: currentLevel > 0 ? "upgrade" : "purchase",
+    kind: "upgrade",
   }, now);
+  return next;
+}
+
+export function setRackUnitPlaced(save: GameSave, unitId: string, placed: boolean, now = Date.now()): GameSave {
+  const next = settleOffline(save, now);
+  const index = next.rackUnits.findIndex((unit) => unit.id === unitId);
+  if (index < 0) throw new Error("Unit rak tidak ditemukan di inventori.");
+  const unit = next.rackUnits[index];
+  if (unit.placed === placed) return next;
+  if (!placed) {
+    const rack = SERVER_RACKS.find((item) => item.id === unit.rackId);
+    const capacityAfterRemoving = getRoomSlotCapacity(next) - (rack?.slots || 0);
+    const installedCount = next.minerUnits.filter((item) => item.placed).length;
+    if (installedCount > capacityAfterRemoving) throw new Error("Keluarkan miner dari ruang dulu sebelum menyimpan rak ini.");
+  }
+  next.rackUnits[index] = { ...unit, placed };
   return next;
 }
 

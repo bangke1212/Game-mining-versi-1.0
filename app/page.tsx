@@ -1,22 +1,23 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Activity, ArrowDownLeft, ArrowUpRight, BatteryCharging, Cat, Check, ChevronRight,
-  CircleHelp, Clock3, Coins, Cpu, Crown, Gamepad2, Gem, HardDrive, Home, LockKeyhole,
+  Activity, ArrowDownLeft, ArrowUpRight, Cat, Check, ChevronRight,
+  CircleHelp, Clock3, Coins, Cpu, Crown, Gamepad2, Gem, Home, LockKeyhole,
   Menu, Pickaxe, RotateCcw, Server, ShieldCheck, ShoppingBag, Sparkles, Trophy, WifiOff, Zap,
 } from "lucide-react";
 import {
   addTemporaryPower, AVATAR_ACCESSORIES, AVATAR_COATS, ArcadeMode, AvatarCustomization,
-  buyOrUpgradeMiner, buyOrUpgradeRack, createInitialSave, DEFAULT_AVATAR, GameSave,
+  createInitialSave, DEFAULT_AVATAR, GameSave,
   getActiveTemporaryPower, getArcadeRewardEstimate, getHourlyReward, getLeague,
-  getPermanentPower, getPlayerShare, getUpgradeCost, getUtcDayKey, grantArcadeReward,
-  MAX_ARCADE_REWARD_PER_DAY, MAX_ITEM_LEVEL, MIN_PAW_RUSH_BOOST_SCORE, MINERS,
-  normalizeSave, SAVE_KEY, SERVER_RACKS, settleOffline,
+  getPermanentPower, getPlayerShare, getUtcDayKey, grantArcadeReward,
+  MAX_ARCADE_REWARD_PER_DAY, MIN_PAW_RUSH_BOOST_SCORE,
+  normalizeSave, SAVE_KEY, settleOffline,
 } from "@/lib/legioncoin";
 import ArcadeHub from "./arcade-hub";
 import CatAvatar from "./cat-avatar";
+import { MinerMarketScreen, MinerRoomScreen, ServerRackBayScreen } from "./mining-room";
 
 const formatNumber = (value: number, digits = 0) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value);
 
@@ -204,8 +205,6 @@ export default function HomePage() {
   const dailyReward = hourlyReward * 24;
   const poolShare = getPlayerShare(totalPower, leagueIndex);
   const progressToLeague = nextLeague ? Math.min(100, ((permanentPower - league.minPower) / (nextLeague.minPower - league.minPower)) * 100) : 100;
-  const activeMiners = useMemo(() => MINERS.filter((miner) => (save?.minerLevels[miner.id] || 0) > 0), [save]);
-  const activeRacks = useMemo(() => SERVER_RACKS.filter((rack) => (save?.rackLevels[rack.id] || 0) > 0), [save]);
   const arcadeEarnedToday = save?.arcadeRewardDay === getUtcDayKey(now) ? save.arcadeCoinsToday : 0;
   const rankEstimate = Math.max(1, Math.min(99, Math.round(4 + (1 - poolShare) * 18)));
   const avatarCustomization = save?.avatar || DEFAULT_AVATAR;
@@ -381,96 +380,26 @@ export default function HomePage() {
 
           {activeSection === "arcade" && <section className="module-screen"><div className="module-screen-heading"><p className="eyebrow">MODUL 01 / PERMAINAN SAMPINGAN</p><h1>Arcade <span>LegionCoin</span></h1><p>Ruang bermain mandiri untuk mendapatkan bonus LC virtual. Selesaikan sesi di layar ini untuk mengklaim hadiah.</p></div><ArcadeHub dailyEarned={arcadeEarnedToday} dailyLimit={MAX_ARCADE_REWARD_PER_DAY} avatar={avatarCustomization} playerName={save?.playerName || "Penjelajah Paw"} onComplete={completeArcade} /></section>}
 
-          {(activeSection === "rigs" || activeSection === "league") && <section className="module-screen rigs-screen">
-          <div className="section-heading" id={activeSection === "rigs" ? "rigs" : "league"}><div><p className="eyebrow">{activeSection === "rigs" ? "SEKTOR 02 / RUANG KERJA" : "MODUL 05 / TANGGA PERINGKAT"}</p><h2>{activeSection === "rigs" ? <>Rig mining <span>kamu</span></> : <>Liga &amp; <span>pool</span></>}</h2></div><span className="count-chip">{activeSection === "rigs" ? <><HardDrive size={13} /> {activeMiners.length} MINER · {activeRacks.length} RAK</> : <><Trophy size={13} /> {league.name.toUpperCase()} · PERINGKAT #{rankEstimate}</>}</span></div>
-          <section className="rigs-layout rigs-layout-single">
-            {activeSection === "rigs" && <div className="rigs-card panel">
-              <div className="panel-header"><div><span className="section-label">FARM VIRTUAL</span><h3>Rig yang bekerja</h3></div><span className="active-badge"><i /> MENAMBANG</span></div>
-              <div className="rig-grid">
-                {activeMiners.map((miner, index) => {
-                  const level = save?.minerLevels[miner.id] || 1;
-                  const isStarter = miner.id === "starter-cat";
-                  const upgradePrice = getUpgradeCost(miner.id, level);
-                  const upgradeTarget = `miner:${miner.id}`;
-                  const upgradeActive = upgradeEffect?.target === upgradeTarget;
-                  return <article className={`rig-tile ${isStarter ? "rig-featured" : ""} ${upgradeActive ? "upgrade-celebrate" : ""}`} style={upgradeAnimationStyle(upgradeTarget)} key={miner.id}>
-                    {upgradeActive && <span className="upgrade-flash-label"><Sparkles size={11} /> LEVEL UP</span>}
-                    <div className="rig-tile-top"><div className={`miner-glyph miner-glyph-${index}`}><Image src="/images/legion-cat-mascot-512.png" width={74} height={74} alt="" /></div><span className="rig-level">LV.{String(level).padStart(2, "0")}</span></div>
-                    <h4>{miner.name}</h4><p>{miner.label}</p><div className="rig-power"><Zap size={14} /> {formatNumber(miner.power * level)} <small>TH/s</small></div><div className="rig-meter"><span style={{ width: `${36 + ((now / 1000 + index * 17) % 58)}%` }} /></div><div className="rig-tile-foot"><span><i /> ONLINE</span><span>#{String(index + 1).padStart(2, "0")}</span></div>
-                    <button className="rig-upgrade-action" disabled={!save || save.balance < upgradePrice || level >= MAX_ITEM_LEVEL} onClick={() => runAction((current, time) => buyOrUpgradeMiner(current, miner.id, time), `${miner.name} ditingkatkan!`, upgradeTarget)}><Zap size={12} /> {level >= MAX_ITEM_LEVEL ? "LEVEL MAKS" : `UPGRADE · ${formatNumber(upgradePrice)} LC`}</button>
-                  </article>;
-                })}
-              </div>
-              <div className="rig-footer"><span><BatteryCharging size={14} /> Grid virtual stabil · 100%</span><span><span className="live-dot" /> SAVE OTOMATIS</span></div>
-            </div>}
-            {activeSection === "league" && <aside className="league-card panel">
-              <div className="league-card-head"><div><span className="section-label">TANGGA PERINGKAT</span><h3>Jalur liga</h3></div><span className={`league-emblem emblem-${league.color}`}><Crown size={18} /></span></div>
-              <div className={`league-banner league-${league.color}`}><span className="league-small">LIGA SAAT INI</span><strong>{league.name}</strong><span className="league-icon">{leagueIndex + 1 < 3 ? "✦" : "✧"}</span></div>
-              <div className="league-progress-label"><span>POWER PERMANEN</span><b>{formatNumber(permanentPower)} TH/s</b></div><div className="league-progress"><span style={{ width: `${progressToLeague}%` }} /></div>
-              <p className="league-next">{nextLeague ? <><b>{formatNumber(Math.max(0, nextLeague.minPower - permanentPower))} TH/s</b> lagi ke Liga {nextLeague.name}</> : "Kamu sudah mencapai liga tertinggi!"}</p>
-              <div className="league-divider" /><div className="pool-info"><div><span>POOL LIGA / HARI</span><b>{formatNumber(league.dailyPool)} <small>LC</small></b></div><div><span>PORSI POWER-MU</span><b>{formatNumber(poolShare * 100, 2)}<small>%</small></b></div></div>
-              <p className="simulation-note"><Activity size={13} /> Pool dan rival dihitung secara simulasi lokal. Power sementara menambah porsi, tetapi tidak menaikkan liga.</p>
-            </aside>}
-          </section>
-          {activeSection === "league" && <section className="rivals-card panel league-rivals-card"><div className="panel-header"><div><span className="section-label">SIMULASI LOKAL</span><h3>Rival satu liga</h3></div><span className="npc-label"><Activity size={12} /> NPC</span></div><p className="rivals-intro">Nama dan power berikut adalah karakter bot lokal—bukan leaderboard pemain sungguhan.</p><div className="rival-list">{RIVALS.map((rival, index) => <div className="rival-row" key={rival.name}><span className="rival-rank">0{index + 1}</span><span className="rival-avatar">{rival.icon}</span><b>{rival.name}</b><span className="rival-power">{formatNumber(Math.max(12, league.rivalPower * rival.offset))} TH/s</span><div className="rival-bar"><span style={{ width: `${Math.min(100, rival.offset * 53)}%` }} /></div></div>)}</div></section>}
+          {activeSection === "rigs" && <MinerRoomScreen save={save} onAction={runAction} activeUpgradeTarget={upgradeEffect?.target} upgradeAnimationStyle={upgradeAnimationStyle} onOpenMarket={() => selectSection("market")} onOpenRacks={() => selectSection("racks")} leagueName={league.name} dailyReward={dailyReward} />}
+
+          {activeSection === "league" && <section className="module-screen rigs-screen">
+            <div className="section-heading" id="league"><div><p className="eyebrow">MODUL 05 / TANGGA PERINGKAT</p><h2>Liga &amp; <span>pool</span></h2></div><span className="count-chip"><Trophy size={13} /> {league.name.toUpperCase()} · PERINGKAT #{rankEstimate}</span></div>
+            <section className="rigs-layout rigs-layout-single">
+              <aside className="league-card panel">
+                <div className="league-card-head"><div><span className="section-label">TANGGA PERINGKAT</span><h3>Jalur liga</h3></div><span className={`league-emblem emblem-${league.color}`}><Crown size={18} /></span></div>
+                <div className={`league-banner league-${league.color}`}><span className="league-small">LIGA SAAT INI</span><strong>{league.name}</strong><span className="league-icon">{leagueIndex + 1 < 3 ? "✦" : "✧"}</span></div>
+                <div className="league-progress-label"><span>POWER PERMANEN</span><b>{formatNumber(permanentPower)} TH/s</b></div><div className="league-progress"><span style={{ width: `${progressToLeague}%` }} /></div>
+                <p className="league-next">{nextLeague ? <><b>{formatNumber(Math.max(0, nextLeague.minPower - permanentPower))} TH/s</b> lagi ke Liga {nextLeague.name}</> : "Kamu sudah mencapai liga tertinggi!"}</p>
+                <div className="league-divider" /><div className="pool-info"><div><span>POOL LIGA / HARI</span><b>{formatNumber(league.dailyPool)} <small>LC</small></b></div><div><span>PORSI POWER-MU</span><b>{formatNumber(poolShare * 100, 2)}<small>%</small></b></div></div>
+                <p className="simulation-note"><Activity size={13} /> Pool dan rival dihitung secara simulasi lokal. Power sementara menambah porsi, tetapi tidak menaikkan liga.</p>
+              </aside>
+            </section>
+            <section className="rivals-card panel league-rivals-card"><div className="panel-header"><div><span className="section-label">SIMULASI LOKAL</span><h3>Rival satu liga</h3></div><span className="npc-label"><Activity size={12} /> NPC</span></div><p className="rivals-intro">Nama dan power berikut adalah karakter bot lokal—bukan leaderboard pemain sungguhan.</p><div className="rival-list">{RIVALS.map((rival, index) => <div className="rival-row" key={rival.name}><span className="rival-rank">0{index + 1}</span><span className="rival-avatar">{rival.icon}</span><b>{rival.name}</b><span className="rival-power">{formatNumber(Math.max(12, league.rivalPower * rival.offset))} TH/s</span><div className="rival-bar"><span style={{ width: `${Math.min(100, rival.offset * 53)}%` }} /></div></div>)}</div></section>
           </section>}
 
-          {activeSection === "racks" && <section className="module-screen">
-          <div className="section-heading" id="racks"><div><p className="eyebrow">SEKTOR 03 / INFRASTRUKTUR KUCING</p><h2>Rak server <span>markas</span></h2></div><span className="count-chip"><Server size={13} /> {activeRacks.length} / {SERVER_RACKS.length} JENIS TERPASANG</span></div>
-          <section className="rack-room panel">
-            <div className="panel-header"><div><span className="section-label"><Server size={13} /> CAT SERVER BAY</span><h3>Rak server yang bekerja</h3></div><span className="active-badge"><i /> {formatNumber(activeRacks.reduce((sum, rack) => sum + rack.power * (save?.rackLevels[rack.id] || 0), 0))} TH/s RAK</span></div>
-            {activeRacks.length > 0 ? <div className="server-rack-grid">{activeRacks.map((rack, index) => {
-              const level = save?.rackLevels[rack.id] || 1;
-              const upgradePrice = getUpgradeCost(rack.id, level);
-              const atMaxLevel = level >= MAX_ITEM_LEVEL;
-              const upgradeTarget = `rack:${rack.id}`;
-              const upgradeActive = upgradeEffect?.target === upgradeTarget;
-              return <article className={`server-rack-tile ${upgradeActive ? "upgrade-celebrate" : ""}`} style={upgradeAnimationStyle(upgradeTarget)} key={rack.id}>
-                {upgradeActive && <span className="upgrade-flash-label"><Sparkles size={11} /> RACK LEVEL UP</span>}
-                <div className={`server-rack-art rack-art-${index}`}><Server size={31} /><span>🐈</span></div>
-                <div className="server-rack-info"><div className="server-rack-title"><div><span className="item-type">{rack.label.toUpperCase()}</span><h4>{rack.name}</h4></div><span className="rig-level">LV.{String(level).padStart(2, "0")}</span></div><p>{rack.description}</p><div className="server-rack-stats"><span><Zap size={13} /> {formatNumber(rack.power * level)} TH/s</span><span><i /> ONLINE</span></div><button className="rig-upgrade-action" disabled={!save || save.balance < upgradePrice || atMaxLevel} onClick={() => runAction((current, time) => buyOrUpgradeRack(current, rack.id, time), `${rack.name} di-upgrade!`, upgradeTarget)}><Zap size={12} /> {atMaxLevel ? "LEVEL MAKS" : `UPGRADE RAK · ${formatNumber(upgradePrice)} LC`}</button></div>
-              </article>;
-            })}</div> : <div className="rack-empty"><div className="server-rack-art rack-art-empty"><Server size={33} /><span>🐱</span></div><div><b>Bay server masih kosong</b><p>Pasang rak kucing dari pasar di bawah. Setiap rak menambah power permanen dan membantu naik liga.</p></div></div>}
-            <div className="rig-footer"><span><BatteryCharging size={14} /> Semua rak virtual · tidak memakai CPU untuk mining</span><span><span className="live-dot" /> SAVE OTOMATIS</span></div>
-          </section>
-          </section>}
+          {activeSection === "racks" && <ServerRackBayScreen save={save} onAction={runAction} activeUpgradeTarget={upgradeEffect?.target} upgradeAnimationStyle={upgradeAnimationStyle} onOpenMarket={() => selectSection("market")} onOpenRoom={() => selectSection("rigs")} />}
 
-          {activeSection === "market" && <section className="module-screen">
-          <section className="market-section" id="market">
-            <div className="section-heading"><div><p className="eyebrow">SEKTOR 04 / PERDAGANGAN LOKAL</p><h2>Pasar rig &amp; rak <span>virtual</span></h2></div><span className="market-note"><LockKeyhole size={13} /> TANPA UANG ASLI</span></div>
-            <div className="market-grid">
-              {MINERS.filter((miner) => miner.id !== "starter-cat").map((miner, index) => {
-                const level = save?.minerLevels[miner.id] || 0;
-                const owned = level > 0;
-                const price = owned ? getUpgradeCost(miner.id, level) : miner.price;
-                const atMaxLevel = level >= MAX_ITEM_LEVEL;
-                const upgradeTarget = `miner:${miner.id}`;
-                const upgradeActive = upgradeEffect?.target === upgradeTarget;
-                return <article className={`market-card panel ${owned ? "market-owned" : ""} ${upgradeActive ? "upgrade-celebrate" : ""}`} style={upgradeAnimationStyle(upgradeTarget)} key={miner.id}>
-                  {upgradeActive && <span className="upgrade-flash-label"><Sparkles size={11} /> LEVEL UP</span>}
-                  <div className={`market-art market-art-${index}`}><div className="market-ring" /><Image src="/images/legion-cat-mascot-512.png" width={102} height={102} alt="" /><span className="market-power"><Zap size={12} /> +{miner.power * (owned ? level + 1 : 1)} TH/s</span></div>
-                  <div className="market-card-body"><span className="item-type">{miner.label.toUpperCase()}</span><h3>{miner.name}</h3><p>{miner.description}</p><div className="market-bottom"><span className="item-price">{atMaxLevel ? <span>LEVEL MAKS</span> : <><Coins size={15} /> {formatNumber(price)} <small>LC</small></>}</span><button className={`buy-button ${owned ? "upgrade-button" : ""}`} disabled={!save || save.balance < price || atMaxLevel} onClick={() => runAction((current, time) => buyOrUpgradeMiner(current, miner.id, time), owned ? "Miner ditingkatkan!" : "Miner baru aktif!", owned ? upgradeTarget : undefined)}>{atMaxLevel ? "LEVEL MAKS" : owned ? "TINGKATKAN" : "BELI MINER"}{!atMaxLevel && <ChevronRight size={14} />}</button></div>{owned && <span className="owned-caption"><Check size={11} /> TERPASANG · LEVEL {level}/{MAX_ITEM_LEVEL}</span>}</div>
-                </article>;
-              })}
-            </div>
-            <div className="market-subheading"><div><span className="section-label"><Server size={13} /> INFRASTRUKTUR SERVER</span><h3>Rak server kucing</h3></div><span>POWER PERMANEN · LEVEL MAKS. {MAX_ITEM_LEVEL}</span></div>
-            <div className="market-grid rack-market-grid">
-              {SERVER_RACKS.map((rack, index) => {
-                const level = save?.rackLevels[rack.id] || 0;
-                const owned = level > 0;
-                const price = owned ? getUpgradeCost(rack.id, level) : rack.price;
-                const atMaxLevel = level >= MAX_ITEM_LEVEL;
-                const upgradeTarget = `rack:${rack.id}`;
-                const upgradeActive = upgradeEffect?.target === upgradeTarget;
-                return <article className={`market-card panel ${owned ? "market-owned" : ""} ${upgradeActive ? "upgrade-celebrate" : ""}`} style={upgradeAnimationStyle(upgradeTarget)} key={rack.id}>
-                  {upgradeActive && <span className="upgrade-flash-label"><Sparkles size={11} /> RACK LEVEL UP</span>}
-                  <div className={`market-art rack-market-art market-art-${index}`}><div className="market-ring" /><div className="rack-market-icon"><Server size={43} /><span>🐈</span></div><span className="market-power"><Zap size={12} /> +{formatNumber(rack.power)} TH/s / level</span></div>
-                  <div className="market-card-body"><span className="item-type">{rack.label.toUpperCase()}</span><h3>{rack.name}</h3><p>{rack.description}</p><div className="market-bottom"><span className="item-price">{atMaxLevel ? <span>LEVEL MAKS</span> : <><Coins size={15} /> {formatNumber(price)} <small>LC</small></>}</span><button className={`buy-button ${owned ? "upgrade-button" : ""}`} disabled={!save || save.balance < price || atMaxLevel} onClick={() => runAction((current, time) => buyOrUpgradeRack(current, rack.id, time), owned ? "Rak server di-upgrade!" : "Rak server kucing terpasang!", owned ? upgradeTarget : undefined)}>{atMaxLevel ? "LEVEL MAKS" : owned ? "UPGRADE RAK" : "BELI RAK"}{!atMaxLevel && <ChevronRight size={14} />}</button></div>{owned && <span className="owned-caption"><Check size={11} /> TERPASANG · LEVEL {level}/{MAX_ITEM_LEVEL}</span>}</div>
-                </article>;
-              })}
-            </div>
-          </section>
-          </section>}
+          {activeSection === "market" && <MinerMarketScreen save={save} onAction={runAction} />}
 
           {activeSection === "wallet" && <section className="module-screen">
             <div className="section-heading" id="wallet"><div><p className="eyebrow">MODUL 07 / PENYIMPANAN LOKAL</p><h2>Dompet <span>virtual</span></h2></div><span className="market-note"><LockKeyhole size={13} /> SAVE PERANGKAT INI</span></div>
