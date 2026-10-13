@@ -39,14 +39,14 @@ export const MINERS = [
   { id: "starter-cat", name: "Pawioneer Mk.I", label: "Rig pemula", power: 24, price: 0, description: "Rig mungil untuk mulai menggali hadiah virtual." },
   { id: "lynx-lite", name: "Lynx Lite", label: "Miner hemat", power: 22, price: 90, description: "Tambahan power stabil untuk markas kecil." },
   { id: "purr-drive", name: "PurrDrive 4K", label: "Miner modular", power: 58, price: 260, description: "Modul modular dengan pendingin kumis." },
-  { id: "meow-core", name: "MeowCore X", label: "Core berdaya tinggi", power: 145, price: 690, description: "Core kuat untuk bersaing di liga lebih tinggi." },
+  { id: "meow-core", name: "MeowCore X", label: "Core berdaya tinggi", power: 145, price: 690, description: "Core kuat untuk markas berdaya tinggi." },
   { id: "lionheart-rack", name: "Lionheart Rack", label: "Rig legendaris", power: 330, price: 1680, description: "Satu rig besar untuk para penjelajah berpengalaman." },
 ] as const;
 
 export const SERVER_RACKS = [
   { id: "purrstack-mini", name: "PurrStack Mini", label: "Rak server pemula", power: 90, slots: 3, price: 460, description: "Rak 2U untuk tiga rig, dirakit Kapten Paw untuk markas baru." },
   { id: "whisker-tower", name: "Whisker Tower", label: "Rak modular", power: 260, slots: 5, price: 1380, description: "Menara berpendingin senyap dengan lima slot rig tambahan." },
-  { id: "meow-cluster", name: "Meow Cluster 9", label: "Klaster endgame", power: 720, slots: 8, price: 3950, description: "Klaster server kucing dengan delapan slot untuk liga puncak." },
+  { id: "meow-cluster", name: "Meow Cluster 9", label: "Klaster endgame", power: 720, slots: 8, price: 3950, description: "Klaster server kucing dengan delapan slot untuk endgame." },
 ] as const;
 
 export type MinerUnit = { id: string; minerId: string; level: number; placed: boolean };
@@ -268,10 +268,6 @@ export function getHourlyReward(power: number, leagueIndex: number): number {
   return (league.dailyPool / 24) * share;
 }
 
-export function getPlayerShare(power: number, leagueIndex: number): number {
-  const league = LEAGUES[Math.max(0, Math.min(leagueIndex, LEAGUES.length - 1))];
-  return power <= 0 ? 0 : power / (power + league.rivalPower);
-}
 
 function addActivity(save: GameSave, entry: Omit<Activity, "id" | "at">, now: number) {
   save.activity = [{ ...entry, id: `${now}-${Math.random().toString(36).slice(2, 7)}`, at: now }, ...save.activity].slice(0, 10);
