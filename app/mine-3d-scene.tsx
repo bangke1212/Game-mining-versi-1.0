@@ -25,11 +25,11 @@ function RouteLines({ truckId, selected }: { truckId: string; selected: boolean 
 }
 
 function AnimatedTruck({ enabled, selected, truck, onSelect }: { enabled: boolean; selected: boolean; truck: DispatchTruck; onSelect: (id: string) => void }) {
-  const { scene } = useGLTF("/models/north-ridge-mine.gltf");
+  const { scene } = useGLTF("/models/haul-truck-pro.glb");
   const ref = useRef<THREE.Group>(null);
   const progressRef = useRef(truck.progress);
   const curve = useMemo(() => makeRouteCurve(routePoints[truck.id]), [truck.id]);
-  const model = useMemo(() => { const original = scene.getObjectByName("HaulTruck_GLTF"); return original ? original.clone(true) : new THREE.Group(); }, [scene]);
+  const model = useMemo(() => { const clone = scene.clone(true); clone.rotation.y = Math.PI; clone.scale.setScalar(.72); return clone; }, [scene]);
   useFrame((state, delta) => {
     if (!ref.current) return;
     const target = enabled ? truck.progress : progressRef.current;
@@ -40,7 +40,7 @@ function AnimatedTruck({ enabled, selected, truck, onSelect }: { enabled: boolea
     ref.current.position.set(point.x, point.y + Math.sin(state.clock.elapsedTime * 7) * .025, point.z);
     ref.current.rotation.y = Math.atan2(tangent.x, tangent.z);
   });
-  return <><RouteLines truckId={truck.id} selected={selected} /><group ref={ref} onClick={(event) => { event.stopPropagation(); onSelect(truck.id); }}><Trail width={selected ? 1.2 : .65} length={selected ? 5 : 2.5} color={selected ? "#63e6a6" : "#79b9ff"} attenuation={(t) => t * t}><primitive object={model} scale={.72} /></Trail><Html position={[0, 1.7, 0]} center distanceFactor={13}><div className={`r3f-label ${truck.status} ${selected ? "selected" : ""}`}>{truck.id}<small>{truck.status.toUpperCase()}</small></div></Html></group></>;
+  return <><RouteLines truckId={truck.id} selected={selected} /><group ref={ref} onClick={(event) => { event.stopPropagation(); onSelect(truck.id); }}><Trail width={selected ? 1.2 : .65} length={selected ? 5 : 2.5} color={selected ? "#63e6a6" : "#79b9ff"} attenuation={(t) => t * t}><primitive object={model} /></Trail><Html position={[0, 1.9, 0]} center distanceFactor={13}><div className={`r3f-label ${truck.status} ${selected ? "selected" : ""}`}>{truck.id}<small>{truck.status.toUpperCase()}</small></div></Html></group></>;
 }
 
 function DispatchLoop({ enabled, selectedId, onSelect, onUpdate }: { enabled: boolean; selectedId: string; onSelect: (id: string) => void; onUpdate: (trucks: DispatchTruck[]) => void }) {
@@ -58,3 +58,4 @@ export default function Mine3DScene({ enabled = true, selectedId, onSelect, onDi
 }
 
 useGLTF.preload("/models/north-ridge-mine.gltf");
+useGLTF.preload("/models/haul-truck-pro.glb");
