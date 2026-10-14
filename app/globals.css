@@ -4,3 +4,25 @@
 
 /* Expanded 3D mining-room overlays */
 .rig-label{min-width:108px;padding:7px 9px;border:1px solid #315d50;border-radius:5px;background:#0b1719dd;backdrop-filter:blur(7px);box-shadow:0 0 18px #8cffd124;color:var(--mint);font:8px var(--mono);letter-spacing:.04em}.rig-label b{display:block}.rig-label small{display:block;color:#9db4b3;font-size:7px;margin-top:4px}.rig-label.fault{border-color:#6b3c3d;color:var(--coral);box-shadow:0 0 16px #ef767a22}.room-holo{width:210px;padding:10px 12px;border:1px solid #3d7770;border-radius:7px;background:linear-gradient(135deg,#102a2bdd,#10202add);box-shadow:0 0 24px #8cffd11c;color:var(--mint);font:8px var(--mono);letter-spacing:.05em}.room-holo>div:first-child{display:flex;align-items:center;justify-content:space-between;gap:10px}.room-holo b{font-size:9px}.room-holo small{display:block;color:#8db3ac;margin-top:7px;font-size:7px}.holo-bar{height:3px;background:#19372f;border-radius:5px;margin-top:9px;overflow:hidden}.holo-bar i{display:block;height:100%;background:var(--mint);box-shadow:0 0 7px var(--mint);border-radius:5px}.room-hud .hud-card{padding:8px 10px;border:1px solid #29444a;border-radius:5px;background:#0b151bdd;color:#a8bfbc;backdrop-filter:blur(6px)}.room-hud .hud-card b{display:block;color:var(--lav);font-size:8px}.room-hud .hud-card small{display:block;margin-top:4px;font-size:7px}.room-corner{position:absolute;right:17px;bottom:15px;text-align:right;color:#6f9295;font:8px var(--mono);letter-spacing:.07em}.room-corner span{color:#49686d}
+
+/* Mobile room recovery: keep the command deck usable and frame the rack as a full-width scene. */
+@media (max-width:1050px){
+  .sidebar{transform:translateX(-100%);transition:transform .25s ease}
+  .sidebar.open{transform:translateX(0)}
+  .close-menu{display:block}
+  .workspace{margin-left:0;width:100%}
+  .menu-button{display:grid}
+  .topbar{padding:0 27px}
+}
+@media (max-width:600px){
+  .content{padding:20px 12px 28px}
+  .room-layout{grid-template-columns:1fr}
+  .room-canvas{height:370px}
+  .room-hud{top:12px;left:12px;gap:8px;font-size:8px}
+  .room-hud .hud-card{max-width:150px;padding:7px 8px}
+  .room-holo{transform:scale(.78);transform-origin:center top}
+  .rig-label{transform:scale(.78);transform-origin:center bottom;min-width:92px}
+  .room-corner{right:12px;bottom:12px;font-size:7px}
+  .room-footer{padding:11px 12px;gap:8px;font-size:8px}
+  .room-footer strong{width:100%;margin-left:0}
+}
