@@ -2,11 +2,11 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "LegionCoin — Tambang Virtual Paw Power",
-  description: "Game simulasi mining offline. Bangun rig virtual, mainkan Paw Rush, dan kembangkan markas bersama maskot kucing LegionCoin.",
-  applicationName: "LegionCoin",
+  title: "OreOps — Mining Operations Control",
+  description: "Interactive 3D-style mining operations command center for fleet, production, safety and asset telemetry.",
+  applicationName: "OreOps",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "LegionCoin" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "OreOps" },
   icons: { icon: "/images/legion-cat-mascot-512.png", apple: "/images/legion-cat-mascot-512.png" },
 };
 

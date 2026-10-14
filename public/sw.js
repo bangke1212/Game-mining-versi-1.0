@@ -1,4 +1,4 @@
-const CACHE_NAME = "legioncoin-shell-v1";
+const CACHE_NAME = "oreops-shell-v1";
 const APP_SHELL = ["/", "/manifest.webmanifest", "/images/legion-cat-mascot-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -20,7 +20,7 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key.startsWith("legioncoin-") && key !== CACHE_NAME).map((key) => caches.delete(key)))).then(() => self.clients.claim()));
+  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => (key.startsWith("legioncoin-") || key.startsWith("oreops-")) && key !== CACHE_NAME).map((key) => caches.delete(key)))).then(() => self.clients.claim()));
 });
 
 self.addEventListener("fetch", (event) => {

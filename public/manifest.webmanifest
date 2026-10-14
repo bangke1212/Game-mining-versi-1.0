@@ -1,16 +1,13 @@
 {
   "id": "/",
-  "name": "LegionCoin — Tambang Virtual Paw Power",
-  "short_name": "LegionCoin",
-  "description": "Game simulasi mining offline dengan maskot kucing. Semua saldo dan reward hanya virtual.",
-  "lang": "id-ID",
+  "name": "OreOps — Mining Operations Control",
+  "short_name": "OreOps",
+  "description": "Interactive mining operations command center for fleet, production, safety and asset telemetry.",
+  "lang": "en-US",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#101710",
-  "theme_color": "#101710",
-  "icons": [
-    { "src": "/images/legion-cat-mascot-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
-  ]
+  "background_color": "#0b1113",
+  "theme_color": "#0b1113"
 }
