@@ -13,11 +13,12 @@ OreOps adalah prototype command center operasi tambang berbasis web. Aplikasi in
 - Detail asset menampilkan posisi, status, payload/throughput, fuel, last update, operational note, dan recent events.
 - Layer dapat dipindah antara Fleet, Production, dan Safety.
 - Active haul cycles dan operational alerts tersedia di bawah scene.
-- Site switcher berpindah antara North Ridge Mine dan South Valley Mine.
+- Hierarki navigasi menampilkan portfolio → site → pit/facility → equipment.
+- Material flow timeline menghubungkan loading face → haul route → crusher → stockpile.
 
 ## Arsitektur prototype
 
-Saat ini frontend sengaja berdiri sendiri agar alur produk dapat diuji tanpa menunggu integrasi data lapangan.
+Frontend berdiri sendiri agar alur produk dapat diuji tanpa menunggu integrasi data lapangan.
 
 ```text
 mock operational entities
@@ -26,7 +27,7 @@ React state + selection model
           ↓
 Next.js dashboard + React Three Fiber + GLTF scene
           ↓
-KPI / fleet dispatch / asset detail / alerts
+KPI / fleet dispatch / asset detail / material flow / alerts
 ```
 
 Tahap berikutnya dapat mengganti data simulasi dengan API, WebSocket, GPS/telemetry, dispatch system, SCADA, GIS, atau database operasional tanpa mengubah pola interaksi dashboard.
@@ -50,9 +51,17 @@ npm run build
 npm run generate:model
 ```
 
+## Fitur operasional tersinkron
+
+**3D ↔ dispatch table.** Klik truck di Canvas atau klik baris tabel memilih `selectedId` yang sama. Baris aktif diberi highlight, dan keyboard Enter/Space juga didukung.
+
+**Multi-site hierarchy.** Sidebar menyimpan konteks `portfolio → site → pit/facility → equipment`. Pergantian site mereset pit ke fasilitas pertama dan mengembalikan selection ke fleet baseline.
+
+**Material flow timeline.** Panel timeline menghubungkan loading face, haul route, primary crusher, dan ore stockpile dengan status complete/live/scheduled, tonase, timestamp, serta target material.
+
 ## Catatan implementasi
 
-Scene utama sekarang memakai React Three Fiber, `@react-three/drei`, dan model GLTF lokal di `public/models/north-ridge-mine.gltf`. Model dibuat dari generator `scripts/generate-mine-gltf.mjs` sehingga asset dapat diregenerasi tanpa Unity atau game engine.
+Scene utama memakai **React Three Fiber**, `@react-three/drei`, dan model **GLTF lokal** di `public/models/north-ridge-mine.gltf`. Model dibuat dari generator `scripts/generate-mine-gltf.mjs` sehingga asset dapat diregenerasi tanpa Unity atau game engine.
 
 `Mine3DScene` menjalankan simulasi dispatch otomatis untuk HT-204 dan HT-118. Setiap 900 ms, state machine menggerakkan unit melalui fase `loading → hauling → dumping → returning`, menghitung progress, dan memperbarui tabel active haul cycles. Asset GLTF dan truck dapat dipilih langsung dari Canvas. Kamera dapat di-orbit dengan drag dan di-zoom dengan scroll.
 
