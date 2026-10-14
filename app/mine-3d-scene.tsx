@@ -1,61 +1,13 @@
 "use client";
-
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Html, Line, OrbitControls, Trail, useGLTF } from "@react-three/drei";
+import { useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
+import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 
-export type DispatchTruck = { id: string; routeIndex: number; routeName: string; progress: number; status: "loading" | "hauling" | "dumping" | "returning" };
-const routePoints: Record<string, [number, number, number][]> = {
-  "HT-204": [[-5, .55, 2.5], [-1, .55, 2.5], [4, .55, 2.5], [8, .55, 1.2], [4, .55, 2.5], [-1, .55, 2.5]],
-  "HT-118": [[-2, .55, 4], [0, .55, 4], [4, .55, 4], [8, .55, 4], [4, .55, 4], [0, .55, 4]],
-};
-const routeNames = ["Pit North → Crusher 01", "Loading face A → Dump 02"];
-function makeRouteCurve(points: [number, number, number][]) { return new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3(...point)), false, "centripetal", .35); }
-
-function GltfMine({ onSelect }: { onSelect: (id: string) => void }) {
-  const { scene } = useGLTF("/models/north-ridge-mine.gltf");
-  const model = useMemo(() => { const clone = scene.clone(true); clone.traverse((object) => { if (object.name === "HaulTruck_GLTF") object.visible = false; }); return clone; }, [scene]);
-  return <primitive object={model} scale={.72} position={[0, -.2, 0]} onClick={(event: { stopPropagation: () => void }) => { event.stopPropagation(); onSelect("CR-01"); }} />;
+function Rig({ x, active, color }: { x: number; active: boolean; color: string }) {
+  const fan = useRef<THREE.Mesh>(null);
+  useFrame((_, delta) => { if (fan.current && active) fan.current.rotation.z += delta * 9; });
+  return <group position={[x, 0, 0]}><mesh position={[0, 0, 0]}><boxGeometry args={[2.4, 1.05, 1.1]} /><meshStandardMaterial color="#1d2934" metalness={.7} roughness={.35} /></mesh><mesh position={[0, .58, 0]}><boxGeometry args={[2.1, .08, .8]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={active ? 1.5 : .1} /></mesh><mesh ref={fan} position={[0, -.02, .57]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.34, .34, .04, 16]} /><meshStandardMaterial color="#94a3b8" /></mesh><mesh position={[-.8, .18, .58]}><sphereGeometry args={[.06, 8, 8]} /><meshBasicMaterial color={active ? "#8cffd1" : "#ef767a"} /></mesh></group>;
 }
-
-function RouteLines({ truckId, selected }: { truckId: string; selected: boolean }) {
-  const curve = useMemo(() => makeRouteCurve(routePoints[truckId]), [truckId]);
-  return <Line points={curve.getPoints(80)} color={selected ? "#63e6a6" : "#79b9ff"} lineWidth={selected ? 2.4 : 1.1} transparent opacity={selected ? .78 : .28} dashed dashSize={.35} gapSize={.22} />;
-}
-
-function AnimatedTruck({ enabled, selected, truck, onSelect }: { enabled: boolean; selected: boolean; truck: DispatchTruck; onSelect: (id: string) => void }) {
-  const { scene } = useGLTF("/models/haul-truck-pro.glb");
-  const ref = useRef<THREE.Group>(null);
-  const progressRef = useRef(truck.progress);
-  const curve = useMemo(() => makeRouteCurve(routePoints[truck.id]), [truck.id]);
-  const model = useMemo(() => { const clone = scene.clone(true); clone.rotation.y = Math.PI; clone.scale.setScalar(.72); return clone; }, [scene]);
-  useFrame((state, delta) => {
-    if (!ref.current) return;
-    const target = enabled ? truck.progress : progressRef.current;
-    progressRef.current = THREE.MathUtils.damp(progressRef.current, target, 4.5, delta);
-    const progress = Math.min(.999, progressRef.current);
-    const point = curve.getPointAt(progress);
-    const tangent = curve.getTangentAt(progress);
-    ref.current.position.set(point.x, point.y + Math.sin(state.clock.elapsedTime * 7) * .025, point.z);
-    ref.current.rotation.y = Math.atan2(tangent.x, tangent.z);
-  });
-  return <><RouteLines truckId={truck.id} selected={selected} /><group ref={ref} onClick={(event) => { event.stopPropagation(); onSelect(truck.id); }}><Trail width={selected ? 1.2 : .65} length={selected ? 5 : 2.5} color={selected ? "#63e6a6" : "#79b9ff"} attenuation={(t) => t * t}><primitive object={model} /></Trail><Html position={[0, 1.9, 0]} center distanceFactor={13}><div className={`r3f-label ${truck.status} ${selected ? "selected" : ""}`}>{truck.id}<small>{truck.status.toUpperCase()}</small></div></Html></group></>;
-}
-
-function DispatchLoop({ enabled, selectedId, onSelect, onUpdate }: { enabled: boolean; selectedId: string; onSelect: (id: string) => void; onUpdate: (trucks: DispatchTruck[]) => void }) {
-  const [trucks, setTrucks] = useState<DispatchTruck[]>([
-    { id: "HT-204", routeIndex: 0, routeName: routeNames[0], progress: .18, status: "hauling" },
-    { id: "HT-118", routeIndex: 1, routeName: routeNames[1], progress: .47, status: "loading" },
-  ]);
-  useEffect(() => { const timer = window.setInterval(() => { if (!enabled) return; setTrucks((current) => current.map((truck) => { const nextProgress = truck.progress + (truck.status === "loading" ? .012 : .026); const wrapped = nextProgress >= 1 ? 0 : nextProgress; const phase = wrapped < .1 ? "loading" : wrapped < .52 ? "hauling" : wrapped < .66 ? "dumping" : "returning"; return { ...truck, progress: wrapped, status: phase }; })); }, 900); return () => window.clearInterval(timer); }, [enabled]);
-  useEffect(() => onUpdate(trucks), [onUpdate, trucks]);
-  return <>{trucks.map((truck) => <AnimatedTruck key={truck.id} enabled={enabled} selected={selectedId === truck.id} truck={truck} onSelect={onSelect} />)}</>;
-}
-
-export default function Mine3DScene({ enabled = true, selectedId, onSelect, onDispatchUpdate }: { enabled?: boolean; selectedId: string; onSelect: (id: string) => void; onDispatchUpdate: (trucks: DispatchTruck[]) => void }) {
-  return <div className="r3f-wrap"><Canvas camera={{ position: [13, 12, 15], fov: 38 }} dpr={[1, 1.6]} shadows><color attach="background" args={["#182c2e"]} /><ambientLight intensity={1.8} /><directionalLight position={[4, 12, 5]} intensity={3} castShadow shadow-mapSize={[1024, 1024]} /><pointLight position={[-8, 6, 4]} intensity={12} color="#66e0bb" /><GltfMine onSelect={onSelect} /><DispatchLoop enabled={enabled} selectedId={selectedId} onSelect={onSelect} onUpdate={onDispatchUpdate} /><OrbitControls enablePan={false} minDistance={9} maxDistance={25} maxPolarAngle={Math.PI / 2.15} target={[0, 0, 0]} /></Canvas><div className="r3f-hud"><span><i /> {enabled ? "R3F LIVE SCENE" : "R3F VIEW PAUSED"}</span><small>Drag to orbit · Scroll to zoom</small></div><div className="r3f-selection">Selected: <b>{selectedId}</b></div></div>;
-}
-
-useGLTF.preload("/models/north-ridge-mine.gltf");
-useGLTF.preload("/models/haul-truck-pro.glb");
+function Room({ online }: { online: number }) { return <><color attach="background" args={["#0d151c"]} /><ambientLight intensity={1.4} /><pointLight position={[0, 6, 4]} intensity={20} color="#8cffd1" /><gridHelper args={[18, 18, "#1f3940", "#16252d"]} position={[0, -.6, 0]} /><Rig x={-3.2} active={online > 0} color="#8cffd1" /><Rig x={0} active={online > 1} color="#b69cff" /><Rig x={3.2} active={online > 2} color="#ffc46b" /><mesh position={[0, 2.25, -1]}><boxGeometry args={[9.5, .08, .08]} /><meshBasicMaterial color="#8cffd1" /></mesh></>; }
+export default function Mine3DScene({ online }: { online: number }) { return <div className="room-canvas"><Canvas camera={{ position: [8, 5.5, 9], fov: 40 }} dpr={[1, 1.5]}><Room online={online} /><OrbitControls enablePan={false} minDistance={7} maxDistance={17} maxPolarAngle={Math.PI / 2.1} /></Canvas><div className="room-hud"><span><i /> LIVE RIG TELEMETRY</span><small>Drag to orbit · Scroll to zoom</small></div></div>; }

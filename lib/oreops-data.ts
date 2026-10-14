@@ -1,25 +1,14 @@
-export type Status = "running" | "idle" | "warning" | "maintenance";
-export type AssetKind = "truck" | "excavator" | "crusher" | "stockpile" | "workshop";
-export type Asset = { id: string; label: string; kind: AssetKind; status: Status; position: string; detail: string; metric: string; value: string; icon: string };
-export type Pit = { id: string; name: string; depth: string };
-export type MineSite = { id: string; name: string; region: string; pits: Pit[] };
-export type Portfolio = { name: string; sites: MineSite[] };
-export type MaterialFlowStep = { name: string; type: string; value: string; time: string; state: "complete" | "active" | "pending" };
-
-export const statusLabel: Record<Status, string> = { running: "RUNNING", idle: "IDLE", warning: "WARNING", maintenance: "SERVICE" };
-export const statusColor: Record<Status, string> = { running: "#63e6a6", idle: "#9aa8b9", warning: "#f5ba62", maintenance: "#ef767a" };
-export const portfolio: Portfolio = { name: "Aurora Mining Group", sites: [{ id: "north-ridge", name: "North Ridge Mine", region: "Kalimantan · Indonesia", pits: [{ id: "pit-01", name: "Pit 01", depth: "−184 m" }, { id: "pit-02", name: "Pit 02", depth: "−96 m" }] }, { id: "south-valley", name: "South Valley Mine", region: "Sulawesi · Indonesia", pits: [{ id: "pit-03", name: "Pit 03", depth: "−142 m" }, { id: "plant-01", name: "Processing Plant", depth: "Surface" }] }] };
-export const assets: Asset[] = [
-  { id: "HT-204", label: "Haul Truck 204", kind: "truck", status: "running", position: "truck-a", detail: "Mengangkut ore dari Pit North ke Crusher 01", metric: "Payload", value: "218 t", icon: "🚚" },
-  { id: "HT-118", label: "Haul Truck 118", kind: "truck", status: "warning", position: "truck-b", detail: "Menunggu loading point selama 04:12", metric: "Wait time", value: "04:12", icon: "🚚" },
-  { id: "EX-07", label: "Excavator EX-07", kind: "excavator", status: "running", position: "excavator", detail: "Loading ore grade tinggi di loading face A", metric: "Cycle", value: "29.4 s", icon: "⛏" },
-  { id: "CR-01", label: "Primary Crusher 01", kind: "crusher", status: "running", position: "crusher", detail: "Feed normal dengan throughput stabil", metric: "Throughput", value: "1,240 t/h", icon: "◈" },
-  { id: "SP-03", label: "Ore Stockpile 03", kind: "stockpile", status: "idle", position: "stockpile", detail: "Stockpile berada di bawah batas optimal", metric: "Inventory", value: "12,840 t", icon: "▰" },
-  { id: "WS-01", label: "Mobile Workshop", kind: "workshop", status: "maintenance", position: "workshop", detail: "PM service untuk Dozer DZ-12 sedang berlangsung", metric: "Progress", value: "68%", icon: "⚙" },
+export type WorkerStatus = "online" | "offline" | "fault";
+export type WorkerKind = "CPU" | "GPU" | "ASIC" | "HIGH-EFFICIENCY" | "EXPERIMENTAL";
+export type Worker = { id: string; name: string; kind: WorkerKind; hashrate: number; efficiency: number; status: WorkerStatus; temperature: number; power: number; level: number; blocks: number; shares: number; cost: number };
+export type Block = { height: number; hash: string; previous: string; nonce: number; difficulty: number; timestamp: string; reward: number; txs: number };
+export type Tx = { id: string; from: string; to: string; amount: number; fee: number; timestamp: string; status: "PENDING" | "CONFIRMED" | "FAILED" };
+export type SimConfig = { speed: number; interval: number; difficulty: number; reward: number; halving: number; simPrice: number; electricity: number; seed: number; failureRate: number; mode: string };
+export const initialWorkers: Worker[] = [
+  { id: "ASIC-07", name: "Atlas S9", kind: "ASIC", hashrate: 94, efficiency: 92, status: "online", temperature: 61, power: 3100, level: 4, blocks: 2, shares: 18420, cost: 1200 },
+  { id: "GPU-12", name: "Rig Nebula", kind: "GPU", hashrate: 42, efficiency: 78, status: "online", temperature: 57, power: 1280, level: 3, blocks: 1, shares: 9021, cost: 760 },
+  { id: "ASIC-03", name: "Forge Mini", kind: "ASIC", hashrate: 28, efficiency: 86, status: "fault", temperature: 74, power: 970, level: 2, blocks: 0, shares: 4818, cost: 420 },
+  { id: "CPU-01", name: "Bootstrap Node", kind: "CPU", hashrate: 4.8, efficiency: 64, status: "online", temperature: 48, power: 180, level: 1, blocks: 0, shares: 880, cost: 180 },
 ];
-export const materialFlow: MaterialFlowStep[] = [
-  { name: "Loading face A", type: "ORE · HIGH GRADE", value: "640 t", time: "14:26:18", state: "complete" },
-  { name: "HT-204 · Haul route", type: "IN TRANSIT · 218 t", value: "72%", time: "14:29:02", state: "active" },
-  { name: "Primary Crusher 01", type: "FEED · 1,240 t/h", value: "Queue 02", time: "14:31:44", state: "active" },
-  { name: "Ore Stockpile 03", type: "DESTINATION · 12,840 t", value: "ETA 02:14", time: "14:34:00", state: "pending" },
-];
+export const initialConfig: SimConfig = { speed: 1, interval: 60, difficulty: 1, reward: 50, halving: 100, simPrice: 1, electricity: .1, seed: 1212, failureRate: 3, mode: "Balanced" };
+export const genesis: Block = { height: 0, hash: "00000000GENESIS7f4a", previous: "—", nonce: 0, difficulty: 1, timestamp: "2026-10-14T07:00:00.000Z", reward: 0, txs: 0 };
