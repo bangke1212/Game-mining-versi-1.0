@@ -26,3 +26,10 @@
   .room-footer{padding:11px 12px;gap:8px;font-size:8px}
   .room-footer strong{width:100%;margin-left:0}
 }
+
+/* Generated ASIC room art replaces the distracting technical wireframe. */
+.room-canvas{isolation:isolate;overflow:hidden;background:#17333c url('/images/cute-asic-room-backdrop.png') center/cover no-repeat}
+.room-canvas:before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,#07141a99 0%,#102b3499 55%,#10242dcc 100%)}
+.room-canvas canvas{position:relative;z-index:1;background:transparent!important}
+.room-hud,.room-corner{z-index:3}
+@media (max-width:600px){.room-canvas{background-position:center center}.room-canvas:before{background:linear-gradient(180deg,#07141acc 0%,#102b3480 55%,#10242de6 100%)}}
