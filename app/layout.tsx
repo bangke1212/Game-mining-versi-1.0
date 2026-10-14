@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./r3f.css";
 
 export const metadata: Metadata = {
   title: "OreOps — Mining Operations Control",

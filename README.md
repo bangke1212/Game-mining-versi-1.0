@@ -24,7 +24,7 @@ mock operational entities
           ↓
 React state + selection model
           ↓
-Next.js dashboard + CSS spatial scene
+Next.js dashboard + React Three Fiber + GLTF scene
           ↓
 KPI / fleet dispatch / asset detail / alerts
 ```
@@ -47,10 +47,13 @@ Validasi production:
 ```bash
 npm run lint
 npm run build
+npm run generate:model
 ```
 
 ## Catatan implementasi
 
-Scene saat ini menggunakan CSS perspective/isometric agar ringan dan tidak memerlukan Unity atau game engine. Struktur komponen dan data sudah dipisahkan secara konseptual sehingga dapat ditingkatkan ke React Three Fiber + GLTF/GLB terrain ketika model 3D nyata dibutuhkan.
+Scene utama sekarang memakai React Three Fiber, `@react-three/drei`, dan model GLTF lokal di `public/models/north-ridge-mine.gltf`. Model dibuat dari generator `scripts/generate-mine-gltf.mjs` sehingga asset dapat diregenerasi tanpa Unity atau game engine.
+
+`Mine3DScene` menjalankan simulasi dispatch otomatis untuk HT-204 dan HT-118. Setiap 900 ms, state machine menggerakkan unit melalui fase `loading → hauling → dumping → returning`, menghitung progress, dan memperbarui tabel active haul cycles. Asset GLTF dan truck dapat dipilih langsung dari Canvas. Kamera dapat di-orbit dengan drag dan di-zoom dengan scroll.
 
 Production deployment sebaiknya menambahkan autentikasi, role-based access, data freshness indicator, audit event, offline/degraded mode, coordinate conversion, dan validasi bahwa dashboard tidak menjadi sumber kontrol langsung untuk equipment.
