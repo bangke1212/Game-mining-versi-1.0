@@ -33,3 +33,32 @@
 .room-canvas canvas{position:relative;z-index:1;background:transparent!important}
 .room-hud,.room-corner{z-index:3}
 @media (max-width:600px){.room-canvas{background-position:center center}.room-canvas:before{background:linear-gradient(180deg,#07141acc 0%,#102b3480 55%,#10242de6 100%)}}
+
+/* RollerCoin-like game UI */
+.rc-note{padding:11px 13px;border-radius:7px;background:#13251f;border:1px solid #28453e;color:var(--mint);font-size:11px;line-height:1.55;margin-bottom:14px}
+.rc-muted{color:var(--muted);font-size:11px;line-height:1.6}
+.rc-muted svg{vertical-align:-2px;margin-right:4px}
+.rc-h3{display:flex;align-items:center;gap:8px;font-size:15px;margin:22px 0 12px}
+.rc-h3 svg{color:var(--mint)}
+.rc-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.rc-big{font:500 34px var(--mono);color:var(--mint);margin:10px 0}
+.rc-game h3{display:flex;align-items:center;gap:8px;font-size:16px;margin:4px 0 8px}
+.rc-game h3 svg{color:var(--mint)}
+.rc-click-btn{font:700 20px Manrope,system-ui,sans-serif;padding:22px 34px;border-radius:12px;border:2px solid #397c66;background:#204e41;color:var(--mint)}
+.rc-click-btn:active{transform:scale(.96)}
+.rc-memory{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:420px;margin:14px 0}
+.rc-card{aspect-ratio:1;border:1px solid var(--line);background:#142029;border-radius:8px;font-size:22px;color:var(--text)}
+.rc-card.open{background:#17372e;border-color:#397c66}
+.rc-react{width:100%;max-width:420px;padding:34px 16px;border-radius:10px;border:1px solid var(--line);background:#142029;color:var(--text);font-size:15px;margin:14px 0}
+.rc-react.wait{background:#332918;color:var(--amber)}
+.rc-react.go{background:#17372e;color:var(--mint);border-color:#397c66}
+.rc-tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+.rc-tabs button{background:#142029;border:1px solid var(--line);color:#899ca1;border-radius:5px;padding:8px 11px;font-size:10px;display:flex;gap:6px;align-items:center}
+.rc-tabs button.selected{color:var(--mint);border-color:#397c66;background:#17372e}
+.rc-slider{display:block;margin:14px 0}
+.rc-slider span{font-size:11px;color:#b8c6c4}
+.rc-slider input{width:100%;accent-color:var(--mint);margin-top:6px}
+.rc-quest{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 0;border-top:1px solid var(--line)}
+.rc-quest strong{display:block;font-size:11px}
+.rc-quest small{display:block;color:var(--muted);font-size:9px;margin-top:3px}
+@media(max-width:600px){.rc-memory{grid-template-columns:repeat(4,1fr)}}

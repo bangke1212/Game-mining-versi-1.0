@@ -1,46 +1,284 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import { Activity, AlertTriangle, ArrowDownRight, ArrowUpRight, Blocks, Bolt, Check, ChevronRight, CircleDollarSign, Cpu, Database, Gauge, GitBranch, LayoutDashboard, List, Menu, Pause, Play, Radio, RefreshCcw, RotateCcw, Settings2, ShieldCheck, SlidersHorizontal, Thermometer, ToggleLeft, ToggleRight, TriangleAlert, Wallet, X, Zap } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Activity, Blocks, Bolt, Check, ChevronRight, CircleDollarSign, Cpu, Gamepad2, LayoutDashboard,
+  List, Menu, Pause, Play, Radio, RotateCcw, Settings2, ShieldCheck, ShoppingCart, Trophy,
+  Wallet, X, Zap,
+} from "lucide-react";
 import Mine3DScene from "./mine-3d-scene";
-import { genesis, initialConfig, initialWorkers, type Block, type SimConfig, type Tx, type Worker } from "@/lib/oreops-data";
+import MiningRoom from "@/components/rollercoin/MiningRoom";
+import Shop from "@/components/rollercoin/Shop";
+import MiniGames from "@/components/rollercoin/MiniGames";
+import WalletView from "@/components/rollercoin/Wallet";
+import LeagueView from "@/components/rollercoin/League";
+import { Badge, MetricCard, SectionTitle, fmtGh, fmtRlt } from "@/components/rollercoin/ui";
+import { COINS } from "@/lib/rollercoin/catalog";
+import {
+  applyBlock, applyMiniGameResult, buyMiner, buyRack, claimDailyLogin, claimQuestBlocks,
+  claimQuestGames, expandRoom, leagueFor, permanentPower, previewBlockRewards, seedState,
+  sellMiner, setAllocation, tempPowerNow, toggleMiner, totalPower,
+} from "@/lib/rollercoin/engine";
+import { clearState, loadState, saveState } from "@/lib/rollercoin/storage";
+import type { GameState, MiniGameResult } from "@/lib/rollercoin/types";
+import { COIN_IDS } from "@/lib/rollercoin/types";
 
-type Page = "overview" | "room" | "fleet" | "blocks" | "mempool" | "economy" | "metrics" | "settings" | "events";
-type Event = { id: number; time: string; kind: string; level: "INFO" | "WARN" | "SUCCESS"; text: string };
-type State = { workers: Worker[]; blocks: Block[]; txs: Tx[]; events: Event[]; history: number[]; balance: number; issued: number; paused: boolean; config: SimConfig };
+type Page = "overview" | "room" | "shop" | "games" | "wallet" | "league" | "settings" | "events";
+
 const nav: { id: Page; label: string; icon: typeof Activity; short: string }[] = [
-  { id: "overview", label: "Mining Overview", icon: LayoutDashboard, short: "Overview" }, { id: "room", label: "Virtual Mining Room", icon: Cpu, short: "3D Room" }, { id: "fleet", label: "Mining Fleet", icon: Bolt, short: "Fleet" }, { id: "blocks", label: "Blockchain Explorer", icon: Blocks, short: "Explorer" }, { id: "mempool", label: "Transaction Mempool", icon: GitBranch, short: "Mempool" }, { id: "economy", label: "Rewards & Economy", icon: CircleDollarSign, short: "Economy" }, { id: "metrics", label: "System Metrics", icon: Gauge, short: "Metrics" }, { id: "settings", label: "Settings & Upgrades", icon: Settings2, short: "Settings" }, { id: "events", label: "Real-Time Event Log", icon: List, short: "Event Log" },
+  { id: "overview", label: "Mining Overview", icon: LayoutDashboard, short: "Overview" },
+  { id: "room", label: "Mining Room", icon: Cpu, short: "Room" },
+  { id: "shop", label: "Miner Shop", icon: ShoppingCart, short: "Shop" },
+  { id: "games", label: "Mini-Games", icon: Gamepad2, short: "Games" },
+  { id: "wallet", label: "Wallet & Quests", icon: Wallet, short: "Wallet" },
+  { id: "league", label: "Blocks & Leagues", icon: Trophy, short: "League" },
+  { id: "settings", label: "Settings", icon: Settings2, short: "Settings" },
+  { id: "events", label: "Event Log", icon: List, short: "Events" },
 ];
-const now = () => new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-const money = (n: number, digits = 2) => `${n.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits })} SIM`;
-const hash = (n: number) => `0000${Math.abs(Math.sin(n * 1212)).toString(16).slice(2, 14)}a9f`;
-const seedState = (): State => ({ workers: initialWorkers, blocks: [genesis], txs: [], events: [{ id: 1, time: now(), kind: "SYSTEM", level: "SUCCESS", text: "State restored · simulator ready" }], history: [126, 130, 137, 142, 139, 148, 151, 155], balance: 148.5, issued: 150, paused: false, config: initialConfig });
-function MetricCard({ label, value, sub, icon: Icon, tone = "mint" }: { label: string; value: string; sub: string; icon: typeof Activity; tone?: string }) { return <article className={`metric-card ${tone}`}><div className="metric-icon"><Icon size={16} /></div><span>{label}</span><strong>{value}</strong><small>{sub}</small></article>; }
-function SectionTitle({ eyebrow, title, action }: { eyebrow: string; title: string; action?: React.ReactNode }) { return <div className="section-title"><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2></div>{action}</div>; }
-function Sparkline({ values, accent = "#8cffd1" }: { values: number[]; accent?: string }) { const max = Math.max(...values), min = Math.min(...values); const points = values.map((v, i) => `${(i / (values.length - 1)) * 100},${92 - ((v - min) / (max - min || 1)) * 72}`).join(" "); return <svg className="sparkline" viewBox="0 0 100 100" preserveAspectRatio="none"><polyline points={points} fill="none" stroke={accent} strokeWidth="3" vectorEffect="non-scaling-stroke" /><polyline points={`0,100 ${points} 100,100`} fill={`${accent}18`} stroke="none" /></svg>; }
-function Badge({ children, tone = "mint" }: { children: React.ReactNode; tone?: string }) { return <span className={`badge ${tone}`}><i />{children}</span>; }
 
 export default function HomePage() {
-  const [page, setPage] = useState<Page>("overview"); const [menu, setMenu] = useState(false); const [state, setState] = useState<State>(seedState); const [selectedBlock, setSelectedBlock] = useState<Block | null>(null);
-  useEffect(() => { try { const saved = localStorage.getItem("bmmc-state"); if (saved) setState(JSON.parse(saved)); } catch {} }, []);
-  useEffect(() => { localStorage.setItem("bmmc-state", JSON.stringify(state)); }, [state]);
-  useEffect(() => { const timer = window.setInterval(() => setState((s) => { if (s.paused) return s; const online = s.workers.filter((w) => w.status === "online"); const rate = online.reduce((a, w) => a + w.hashrate, 0); const nextHistory = [...s.history.slice(-11), Math.round(rate)]; const roll = Math.abs(Math.sin((s.blocks.length + s.config.seed) * 7.13)); const shouldMine = roll < Math.min(.42, rate / (s.config.difficulty * 1600)); let blocks = s.blocks, balance = s.balance, issued = s.issued; let events: Event[] = s.events; if (shouldMine) { const prev = s.blocks[s.blocks.length - 1]; const reward = s.config.reward * Math.pow(.5, Math.floor(prev.height / s.config.halving)); const block: Block = { height: prev.height + 1, hash: hash(prev.height + 1), previous: prev.hash, nonce: Math.floor(roll * 1000000), difficulty: s.config.difficulty, timestamp: new Date().toISOString(), reward, txs: s.txs.filter((t) => t.status === "PENDING").length }; blocks = [...s.blocks, block].slice(-30); balance += reward; issued += reward; events = [{ id: Date.now(), time: now(), kind: "BLOCK", level: "SUCCESS" as const, text: `Block #${block.height} mined · ${reward.toFixed(2)} SIM reward` }, ...s.events].slice(0, 80); }
-    const txs = s.txs.map((t) => t.status === "PENDING" && Math.random() > .45 ? { ...t, status: "CONFIRMED" as const } : t); return { ...s, workers: s.workers.map((w) => w.status === "online" ? { ...w, temperature: Math.min(82, w.temperature + (Math.random() - .45) * 2), shares: w.shares + Math.ceil(w.hashrate / 12) } : w), blocks, txs, balance, issued, history: nextHistory, events }; }), 3000); return () => clearInterval(timer); }, []);
-  const online = state.workers.filter((w) => w.status === "online").length; const hashrate = state.workers.filter((w) => w.status === "online").reduce((a, w) => a + w.hashrate, 0); const power = state.workers.filter((w) => w.status === "online").reduce((a, w) => a + w.power, 0); const pending = state.txs.filter((t) => t.status === "PENDING").length;
-  const addEvent = (text: string, kind = "CONTROL", level: Event["level"] = "INFO") => setState((s) => ({ ...s, events: [{ id: Date.now(), time: now(), kind, level, text }, ...s.events].slice(0, 80) }));
-  const toggleWorker = (id: string) => setState((s) => ({ ...s, workers: s.workers.map((w) => w.id === id ? { ...w, status: w.status === "online" ? "offline" : "online" } : w) }));
-  const upgrade = (id: string) => setState((s) => { const w = s.workers.find((x) => x.id === id); if (!w || s.balance < w.cost) return s; return { ...s, balance: s.balance - w.cost, workers: s.workers.map((x) => x.id === id ? { ...x, level: x.level + 1, hashrate: +(x.hashrate * 1.12).toFixed(1), power: Math.round(x.power * 1.05), cost: Math.round(x.cost * 1.35) } : x), events: [{ id: Date.now(), time: now(), kind: "UPGRADE", level: "SUCCESS" as const, text: `${w.id} upgraded to level ${w.level + 1}` }, ...s.events] }; });
-  const reset = () => { if (confirm("Reset simulation and create a fresh genesis state?")) { setState(seedState()); setPage("overview"); } };
-  const updateConfig = (key: keyof SimConfig, value: string) => setState((s) => ({ ...s, config: { ...s.config, [key]: key === "mode" ? value : Number(value) || 0 } }));
-  const createTx = () => { const tx: Tx = { id: `tx-${Date.now().toString(36)}`, from: "SIM-WALLET-01", to: "SIM-WALLET-02", amount: 2.5, fee: .01, timestamp: new Date().toISOString(), status: state.balance >= 2.51 ? "PENDING" : "FAILED" }; setState((s) => ({ ...s, balance: tx.status === "PENDING" ? s.balance - tx.amount - tx.fee : s.balance, txs: [tx, ...s.txs], events: [{ id: Date.now(), time: now(), kind: "TX", level: tx.status === "PENDING" ? "INFO" : "WARN", text: `${tx.status === "PENDING" ? "Transaction created" : "Transaction failed"} · ${tx.amount} SIM` }, ...s.events] })); };
+  const [page, setPage] = useState<Page>("overview");
+  const [menu, setMenu] = useState(false);
+  const [state, setState] = useState<GameState>(() => seedState());
+  const [loaded, setLoaded] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  useEffect(() => {
+    setState(loadState());
+    setLoaded(true);
+  }, []);
+  useEffect(() => { if (loaded) saveState(state); }, [state, loaded]);
+
+  // 1-second tick: countdown + block close.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      const s = stateRef.current;
+      if (!s.paused && t >= s.nextBlockAt) setState(applyBlock(s, t));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const update = (fn: (s: GameState) => GameState) => setState((s) => fn(s));
+  const attempt = (fn: (s: GameState) => { state: GameState; error?: string }): string | undefined => {
+    const r = fn(stateRef.current);
+    if (!r.error) setState(r.state);
+    return r.error;
+  };
+
+  const secondsToBlock = Math.max(0, Math.ceil((state.nextBlockAt - now) / 1000));
+  const power = totalPower(state, now);
+  const league = leagueFor(permanentPower(state));
+  const preview = previewBlockRewards(state, now);
   const current = nav.find((n) => n.id === page)!;
-  return <main className="app-shell"><div className="simulation-banner"><Radio size={14} /> SIMULATION MODE — NO REAL BLOCKCHAIN OR FINANCIAL VALUE <span>All metrics are virtual</span></div><aside className={`sidebar ${menu ? "open" : ""}`}><div className="brand"><div className="brand-mark"><span>⌬</span></div><div><strong>BLOCKCHAIN<br /><em>MINING</em></strong><small>MISSION CONTROL</small></div><button className="close-menu" onClick={() => setMenu(false)}><X size={18} /></button></div><div className="mission-status"><span>MISSION STATUS</span><strong><i />{state.paused ? "PAUSED" : "SIMULATION LIVE"}</strong><small>Seed {state.config.seed} · v1.0.0</small></div><nav><span className="nav-label">COMMAND DECK</span>{nav.slice(0, 5).map((item) => { const Icon = item.icon; return <button key={item.id} className={page === item.id ? "active" : ""} onClick={() => { setPage(item.id); setMenu(false); }}><Icon size={16} />{item.label}{item.id === "mempool" && pending > 0 && <b>{pending}</b>}</button>; })}<span className="nav-label spaced">SYSTEMS</span>{nav.slice(5).map((item) => { const Icon = item.icon; return <button key={item.id} className={page === item.id ? "active" : ""} onClick={() => { setPage(item.id); setMenu(false); }}><Icon size={16} />{item.label}</button>; })}</nav><div className="sidebar-footer"><div className="sync"><i /> Local state synced<small>Persistence enabled</small></div><button className="reset-link" onClick={reset}><RotateCcw size={13} /> Reset simulation</button></div></aside><section className="workspace"><header className="topbar"><button className="menu-button" onClick={() => setMenu(true)}><Menu size={21} /></button><div><span className="eyebrow">MISSION CONTROL / {current.short.toUpperCase()}</span><h1>{current.label}</h1></div><div className="top-actions"><Badge tone={state.paused ? "amber" : "mint"}>{state.paused ? "PAUSED" : "LIVE"}</Badge><button className="icon-button" onClick={() => setState((s) => ({ ...s, paused: !s.paused }))}>{state.paused ? <Play size={16} /> : <Pause size={16} />}</button><div className="operator">OP<span>01</span></div></div></header><div className="content">{page === "overview" && <Overview state={state} hashrate={hashrate} online={online} pending={pending} setPage={setPage} />} {page === "room" && <Room state={state} online={online} />} {page === "fleet" && <Fleet workers={state.workers} onToggle={toggleWorker} onUpgrade={upgrade} />} {page === "blocks" && <BlocksView blocks={state.blocks} selected={selectedBlock} setSelected={setSelectedBlock} />} {page === "mempool" && <Mempool txs={state.txs} onCreate={createTx} />} {page === "economy" && <Economy state={state} power={power} />} {page === "metrics" && <Metrics state={state} hashrate={hashrate} power={power} online={online} />} {page === "settings" && <Settings config={state.config} update={updateConfig} />} {page === "events" && <Events events={state.events} />}<footer><span>BLOCKCHAIN MINING MISSION CONTROL · SIMULATED ENVIRONMENT</span><span><ShieldCheck size={13} /> No network connection · No financial value</span></footer></div></section></main>;
+  const reset = () => {
+    if (confirm("Reset game and start over with a fresh starter miner? (Simulated progress will be lost)")) {
+      clearState();
+      setState(seedState());
+      setPage("overview");
+    }
+  };
+
+  return (
+    <main className="app-shell">
+      <div className="simulation-banner">
+        <Radio size={14} /> SIMULATION MODE — NO REAL CRYPTO · NO REAL MONEY · NO REAL WITHDRAWAL
+        <span>RollerCoin-like concept · all values virtual</span>
+      </div>
+      <aside className={`sidebar ${menu ? "open" : ""}`}>
+        <div className="brand">
+          <div className="brand-mark"><span>⛏️</span></div>
+          <div><strong>ROLLER-MINE<br /><em>SIMULATOR</em></strong><small>MINING GAME · v1.0</small></div>
+          <button className="close-menu" onClick={() => setMenu(false)}><X size={18} /></button>
+        </div>
+        <div className="mission-status">
+          <span>MINING POWER</span>
+          <strong><i />{fmtGh(power)}</strong>
+          <small>{league.name} league · {fmtRlt(state.rlt)}</small>
+        </div>
+        <nav>
+          <span className="nav-label">GAME MENU</span>
+          {nav.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button key={item.id} className={page === item.id ? "active" : ""} onClick={() => { setPage(item.id); setMenu(false); }}>
+                <Icon size={16} />{item.label}
+                {item.id === "league" && secondsToBlock <= 10 && <b>{secondsToBlock}s</b>}
+              </button>
+            );
+          })}
+        </nav>
+        <div className="sidebar-footer">
+          <div className="sync"><i /> Local save · localStorage<small>Refresh keeps your progress</small></div>
+          <button className="reset-link" onClick={reset}><RotateCcw size={13} /> Reset game</button>
+        </div>
+      </aside>
+
+      <section className="workspace">
+        <header className="topbar">
+          <button className="menu-button" onClick={() => setMenu(true)}><Menu size={21} /></button>
+          <div><span className="eyebrow">ROLLER-MINE SIMULATOR / {current.short.toUpperCase()}</span><h1>{current.label}</h1></div>
+          <div className="top-actions">
+            <Badge tone={state.paused ? "amber" : "mint"}>{state.paused ? "PAUSED" : "LIVE"}</Badge>
+            <button className="icon-button" onClick={() => update((s) => ({ ...s, paused: !s.paused }))}>{state.paused ? <Play size={16} /> : <Pause size={16} />}</button>
+            <div className="operator">⛏️</div>
+          </div>
+        </header>
+
+        <div className="content">
+          {page === "overview" && (
+            <Overview state={state} now={now} secondsToBlock={secondsToBlock} setPage={setPage} />
+          )}
+          {page === "room" && (
+            <MiningRoom state={state} onToggle={(uid) => update((s) => toggleMiner(s, uid))} onSell={(uid) => update((s) => sellMiner(s, uid).state)} />
+          )}
+          {page === "shop" && (
+            <Shop state={state} onBuyMiner={(id) => attempt((s) => buyMiner(s, id))} onBuyRack={(id) => attempt((s) => buyRack(s, id))} onExpandRoom={() => attempt((s) => expandRoom(s))} />
+          )}
+          {page === "games" && (
+            <MiniGames onReward={(r: MiniGameResult) => update((s) => applyMiniGameResult(s, r))} />
+          )}
+          {page === "wallet" && (
+            <WalletView
+              state={state}
+              onClaimDaily={() => attempt((s) => claimDailyLogin(s))}
+              onClaimQuestGames={() => attempt((s) => claimQuestGames(s))}
+              onClaimQuestBlocks={() => attempt((s) => claimQuestBlocks(s))}
+            />
+          )}
+          {page === "league" && (
+            <LeagueView
+              state={state}
+              secondsToBlock={secondsToBlock}
+              onAllocation={(coin, pct) => update((s) => setAllocation(s, coin, pct))}
+              onInterval={(sec) => update((s) => ({ ...s, blockIntervalSec: sec, nextBlockAt: Date.now() + sec * 1000 }))}
+            />
+          )}
+          {page === "settings" && <SettingsView state={state} onPause={() => update((s) => ({ ...s, paused: !s.paused }))} onReset={reset} onInterval={(sec) => update((s) => ({ ...s, blockIntervalSec: sec, nextBlockAt: Date.now() + sec * 1000 }))} />}
+          {page === "events" && (
+            <>
+              <SectionTitle eyebrow="AUDIT TRAIL" title="Event log" action={<Badge>{state.events.length} EVENTS</Badge>} />
+              <section className="panel event-log">
+                {state.events.map((e) => (
+                  <div className="log-row" key={e.id}><time>{e.time}</time><span className={`log-kind ${e.level}`}>{e.kind}</span><p>{e.text}</p><ChevronRight size={14} /></div>
+                ))}
+              </section>
+            </>
+          )}
+          <footer>
+            <span>ROLLER-MINE SIMULATOR · INSPIRED BY THE ROLLERCOIN MINING CONCEPT · SIMULATED ENVIRONMENT</span>
+            <span><ShieldCheck size={13} /> No wallet · No payments · No real crypto</span>
+          </footer>
+        </div>
+      </section>
+    </main>
+  );
 }
-function Overview({ state, hashrate, online, pending, setPage }: { state: State; hashrate: number; online: number; pending: number; setPage: (p: Page) => void }) { return <><div className="hero"><div><span className="eyebrow">THURSDAY, 15 OCT 2026 · LOCAL SIMULATION</span><h2>Run the model,<br /><em>not the risk.</em></h2><p>Observe a deterministic mining network, tune your fleet, and trace every virtual block.</p></div><div className="hero-readout"><span>CHAIN HEIGHT</span><strong>{String(state.blocks[state.blocks.length - 1].height).padStart(4, "0")}</strong><small><i /> Chain integrity verified</small></div></div><div className="metric-grid"><MetricCard label="Total hashrate" value={`${hashrate.toFixed(1)} TH/s`} sub="↑ 4.8% this cycle" icon={Activity} /><MetricCard label="Online workers" value={`${online} / ${state.workers.length}`} sub="1 worker needs recovery" icon={Cpu} tone="lavender" /><MetricCard label="Blocks found" value={String(state.blocks.length - 1)} sub="Target interval 60s" icon={Blocks} tone="amber" /><MetricCard label="Virtual balance" value={money(state.balance, 1)} sub="SIMULATED · +12.4%" icon={Wallet} tone="blue" /></div><div className="overview-grid"><section className="panel chart-panel"><SectionTitle eyebrow="NETWORK PERFORMANCE · LAST 24H" title="Hashrate telemetry" action={<Badge>LIVE FEED</Badge>} /><div className="chart-value"><strong>{hashrate.toFixed(1)} <small>TH/s</small></strong><span><ArrowUpRight size={14} /> 6.2% vs baseline</span></div><Sparkline values={state.history} /><div className="chart-axis"><span>-24h</span><span>-18h</span><span>-12h</span><span>-6h</span><span>NOW</span></div></section><section className="panel block-panel"><SectionTitle eyebrow="LATEST BLOCK" title="Chain pulse" action={<button className="text-button" onClick={() => setPage("blocks")}>Explorer <ChevronRight size={14} /></button>} /><div className="block-hero"><div className="block-orb"><Blocks size={22} /></div><div><span>HEIGHT</span><strong>#{state.blocks[state.blocks.length - 1].height}</strong><small className="mono">{state.blocks[state.blocks.length - 1].hash}</small></div></div><div className="mini-stats"><div><span>REWARD</span><b>{money(state.blocks[state.blocks.length - 1].reward)}</b></div><div><span>TXS</span><b>{state.blocks[state.blocks.length - 1].txs}</b></div><div><span>DIFFICULTY</span><b>{state.config.difficulty.toFixed(2)}</b></div></div></section></div><div className="overview-grid bottom"><section className="panel workers-panel"><SectionTitle eyebrow="MINING FLEET" title="Worker readiness" action={<button className="text-button" onClick={() => setPage("fleet")}>Manage fleet <ChevronRight size={14} /></button>} />{state.workers.slice(0, 3).map((w) => <div className="worker-row" key={w.id}><span className={`worker-dot ${w.status}`} /><div><strong>{w.id}</strong><small>{w.name} · {w.kind}</small></div><b>{w.hashrate} <small>TH/s</small></b><Badge tone={w.status === "online" ? "mint" : "coral"}>{w.status}</Badge></div>)}</section><section className="panel event-panel"><SectionTitle eyebrow="REAL-TIME EVENT LOG" title="Latest signals" action={<button className="text-button" onClick={() => setPage("events")}>View all <ChevronRight size={14} /></button>} />{state.events.slice(0, 4).map((e) => <div className="event-row" key={e.id}><span className={`event-level ${e.level}`} /><div><strong>{e.text}</strong><small>{e.kind} · {e.time}</small></div></div>)}{pending > 0 && <div className="notice"><TriangleAlert size={14} /> {pending} pending transaction{pending > 1 ? "s" : ""} in mempool</div>}</section></div></>; }
-function Room({ state, online }: { state: State; online: number }) { return <><SectionTitle eyebrow="SPATIAL CONTROL / THREE.JS" title="Virtual mining room" action={<Badge>ORBIT ENABLED</Badge>} /><div className="room-layout"><section className="panel room-panel"><Mine3DScene online={online} /><div className="room-footer"><span><i className="legend mint" /> Active rig</span><span><i className="legend lavender" /> Telemetry bus</span><span><i className="legend coral" /> Offline / fault</span><strong>{online} rigs transmitting</strong></div></section><section className="panel room-side"><span className="eyebrow">RACK TELEMETRY</span><h3>Mission rack A</h3>{state.workers.map((w) => <div className="rack-row" key={w.id}><div><strong>{w.id}</strong><small>{w.kind} · L{w.level}</small></div><span className={`signal ${w.status}`} /><b>{w.temperature}°C</b></div>)}<div className="room-note"><Activity size={15} /><div><strong>Simulation loop</strong><small>Updates every 3 seconds. Cooling, power and shares are virtual parameters.</small></div></div></section></div></>; }
-function Fleet({ workers, onToggle, onUpgrade }: { workers: Worker[]; onToggle: (id: string) => void; onUpgrade: (id: string) => void }) { return <><SectionTitle eyebrow="FLEET CONTROL / 04 UNITS" title="Mining fleet" action={<button className="secondary-button"><SlidersHorizontal size={14} /> Filter fleet</button>} /><div className="fleet-grid">{workers.map((w) => <article className="panel fleet-card" key={w.id}><div className="fleet-head"><div className={`fleet-icon ${w.kind.toLowerCase()}`}><Cpu size={20} /></div><div><span className="eyebrow">{w.kind}</span><h3>{w.id}</h3><small>{w.name}</small></div><Badge tone={w.status === "online" ? "mint" : w.status === "fault" ? "coral" : "slate"}>{w.status}</Badge></div><div className="fleet-metrics"><div><span>HASHRATE</span><strong>{w.hashrate}<small> TH/s</small></strong></div><div><span>EFFICIENCY</span><strong>{w.efficiency}<small> W/TH</small></strong></div><div><span>POWER</span><strong>{w.power}<small> W</small></strong></div><div><span>TEMP</span><strong>{w.temperature}<small>°C</small></strong></div></div><div className="level-bar"><span style={{ width: `${Math.min(100, w.level * 18)}%` }} /></div><div className="fleet-actions"><button className="secondary-button" onClick={() => onToggle(w.id)}>{w.status === "online" ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}{w.status === "online" ? "Stop worker" : "Start worker"}</button><button className="primary-button" onClick={() => onUpgrade(w.id)}><Zap size={14} /> Upgrade · {w.cost} SIM</button></div></article>)}</div></>; }
-function BlocksView({ blocks, selected, setSelected }: { blocks: Block[]; selected: Block | null; setSelected: (b: Block | null) => void }) { const valid = blocks.every((b, i) => i === 0 || b.previous === blocks[i - 1].hash); return <><SectionTitle eyebrow="PUBLIC LEDGER / SIMULATED" title="Blockchain explorer" action={<Badge tone={valid ? "mint" : "coral"}>{valid ? "CHAIN VALID" : "CHAIN ERROR"}</Badge>} /><div className="explorer-grid"><section className="panel table-panel"><div className="table-head"><span>HEIGHT</span><span>HASH</span><span>REWARD</span><span>TXS</span><span>TIME</span></div>{[...blocks].reverse().map((b) => <button className={`block-row ${selected?.height === b.height ? "selected" : ""}`} key={b.height} onClick={() => setSelected(b)}><b>#{b.height}</b><span className="mono">{b.hash}</span><span>{b.reward.toFixed(2)} SIM</span><span>{b.txs}</span><small>{new Date(b.timestamp).toLocaleTimeString("en-GB")}</small></button>)}</section><section className="panel detail-panel">{selected ? <><span className="eyebrow">BLOCK DETAIL</span><h3>Block #{selected.height}</h3><div className="hash-box"><small>BLOCK HASH</small><b>{selected.hash}</b></div><div className="detail-grid"><div><span>PREVIOUS HASH</span><b>{selected.previous}</b></div><div><span>NONCE</span><b>{selected.nonce}</b></div><div><span>DIFFICULTY</span><b>{selected.difficulty.toFixed(2)}</b></div><div><span>TRANSACTIONS</span><b>{selected.txs}</b></div></div><div className="validation"><Check size={15} /> Previous hash linkage verified</div></> : <div className="empty-state"><Blocks size={28} /><strong>Select a block</strong><small>Inspect hash linkage and mining proof.</small></div>}</section></div></>; }
-function Mempool({ txs, onCreate }: { txs: Tx[]; onCreate: () => void }) { return <><SectionTitle eyebrow="TRANSACTION LAYER / VIRTUAL" title="Transaction mempool" action={<button className="primary-button" onClick={onCreate}><GitBranch size={15} /> Create test transaction</button>} /><div className="metric-grid compact"><MetricCard label="Pending" value={String(txs.filter((t) => t.status === "PENDING").length)} sub="Awaiting next block" icon={Activity} /><MetricCard label="Confirmed" value={String(txs.filter((t) => t.status === "CONFIRMED").length)} sub="Included in ledger" icon={Check} tone="lavender" /><MetricCard label="Failed" value={String(txs.filter((t) => t.status === "FAILED").length)} sub="Insufficient balance" icon={TriangleAlert} tone="coral" /></div><section className="panel table-panel"><div className="table-head"><span>TX ID</span><span>ROUTE</span><span>AMOUNT</span><span>FEE</span><span>STATUS</span></div>{txs.length === 0 ? <div className="empty-state"><Database size={26} /><strong>Mempool is quiet</strong><small>Create a test transaction to exercise the virtual ledger.</small></div> : txs.map((t) => <div className="tx-row" key={t.id}><b className="mono">{t.id}</b><span>{t.from} → {t.to}</span><span>{t.amount.toFixed(2)} SIM</span><span>{t.fee.toFixed(2)}</span><Badge tone={t.status === "CONFIRMED" ? "mint" : t.status === "FAILED" ? "coral" : "amber"}>{t.status}</Badge></div>)}</section></>; }
-function Economy({ state, power }: { state: State; power: number }) { const cost = power * state.config.electricity / 1000; const revenue = state.issued * state.config.simPrice; return <><SectionTitle eyebrow="VIRTUAL ECONOMY / SIMULATED" title="Rewards & economy" action={<Badge tone="amber">SIMULATED VALUES</Badge>} /><div className="metric-grid"><MetricCard label="Wallet balance" value={money(state.balance, 1)} sub="Virtual player wallet" icon={Wallet} /><MetricCard label="Issued supply" value={money(state.issued, 1)} sub="Block rewards only" icon={CircleDollarSign} tone="lavender" /><MetricCard label="Electricity / h" value={`$${cost.toFixed(2)}`} sub="Virtual cost · $/kWh" icon={Bolt} tone="amber" /><MetricCard label="Virtual profit" value={`$${(revenue - cost).toFixed(2)}`} sub="Not a financial return" icon={ArrowUpRight} tone="blue" /></div><div className="overview-grid"><section className="panel chart-panel"><SectionTitle eyebrow="BALANCE GROWTH" title="SIM wallet trajectory" /><div className="chart-value"><strong>{state.balance.toFixed(1)} <small>SIM</small></strong><span>Price model ${state.config.simPrice.toFixed(2)} / SIM</span></div><Sparkline values={[18, 31, 45, 42, 68, 94, 112, state.balance]} accent="#b69cff" /></section><section className="panel halving-panel"><SectionTitle eyebrow="PROTOCOL EVENTS" title="Halving schedule" />{[0, 1, 2].map((i) => <div className="halving-row" key={i}><span className={i === 0 ? "done" : ""}>{i === 0 ? <Check size={12} /> : i + 1}</span><div><strong>Block {i * state.config.halving}</strong><small>{i === 0 ? "Genesis reward" : `${(state.config.reward * Math.pow(.5, i)).toFixed(2)} SIM reward`}</small></div><b>{i === 0 ? "ACTIVE" : "SCHEDULED"}</b></div>)}</section></div></>; }
-function Metrics({ state, hashrate, power, online }: { state: State; hashrate: number; power: number; online: number }) { return <><SectionTitle eyebrow="OBSERVABILITY / SEPARATED SOURCES" title="System metrics" action={<Badge>NO HARDWARE CLAIMS</Badge>} /><div className="metrics-sections"><section className="panel"><span className="eyebrow">VIRTUAL MINING METRICS</span><h3>Simulation telemetry</h3><div className="big-metric"><Activity /><strong>{hashrate.toFixed(1)} <small>TH/s</small></strong><span>Virtual hashrate</span></div><div className="metric-list"><div><span>Power draw model</span><b>{power.toLocaleString()} W</b></div><div><span>Average temperature</span><b>{Math.round(state.workers.reduce((a, w) => a + w.temperature, 0) / state.workers.length)}°C</b></div><div><span>Network difficulty</span><b>{state.config.difficulty.toFixed(2)}</b></div><div><span>Simulation speed</span><b>{state.config.speed}×</b></div></div></section><section className="panel"><span className="eyebrow">SERVER PROCESS · LOCAL ONLY</span><h3>Dashboard health</h3><div className="big-metric"><Database /><strong>ONLINE</strong><span>Next.js process · simulated UI</span></div><div className="metric-list"><div><span>Workers tracked</span><b>{online}</b></div><div><span>Persistence</span><b>localStorage</b></div><div><span>Network calls</span><b>0 external</b></div><div><span>Uptime</span><b>Session local</b></div></div></section></div></>; }
-function Settings({ config, update }: { config: SimConfig; update: (key: keyof SimConfig, value: string) => void }) { const fields: [keyof SimConfig, string, string][] = [["speed", "Simulation speed", "0.25"], ["interval", "Target block interval", "seconds"], ["difficulty", "Initial difficulty", "multiplier"], ["reward", "Block reward", "SIM"], ["halving", "Halving interval", "blocks"], ["simPrice", "Virtual SIM price", "USD / SIM"], ["electricity", "Electricity cost", "USD / kWh"], ["failureRate", "Worker failure rate", "%"]]; return <><SectionTitle eyebrow="CONTROL PARAMETERS / CONFIGURABLE" title="Settings & upgrades" action={<Badge tone="lavender">{config.mode.toUpperCase()}</Badge>} /><div className="settings-layout"><section className="panel settings-panel"><div className="preset-row"><span className="eyebrow">PRESETS</span>{["Beginner", "Balanced", "Professional", "Extreme"].map((p) => <button className={config.mode === p ? "selected" : ""} key={p} onClick={() => update("mode", p)}>{p}</button>)}</div><div className="form-grid">{fields.map(([key, label, suffix]) => <label key={key}><span>{label}</span><div><input type="number" step="any" value={config[key] as number} onChange={(e) => update(key, e.target.value)} /><small>{suffix}</small></div></label>)}</div><div className="seed-note"><ShieldCheck size={15} /><span><strong>Reproducible seed</strong><small>Controlled randomness is derived from seed {config.seed}; refresh will not mint new blocks.</small></span></div></section><section className="panel settings-side"><span className="eyebrow">SIMULATION CONTRACT</span><h3>Safe by design</h3><p>This control room never connects to a public chain, wallet, pool or payment rail. Values are educational parameters only.</p><div className="contract-row"><Check size={14} /> No real mining</div><div className="contract-row"><Check size={14} /> No real tokens</div><div className="contract-row"><Check size={14} /> No financial value</div><button className="secondary-button" onClick={() => update("seed", String(Math.floor(Math.random() * 9999)))}><RefreshCcw size={14} /> Reseed simulation</button></section></div></>; }
-function Events({ events }: { events: Event[] }) { return <><SectionTitle eyebrow="AUDIT TRAIL / JSONL-STYLE" title="Real-time event log" action={<Badge>{events.length} EVENTS</Badge>} /><section className="panel event-log"><div className="log-toolbar"><button className="selected">ALL EVENTS</button><button>INFO</button><button>WARNINGS</button><button>BLOCKS</button></div>{events.map((e) => <div className="log-row" key={e.id}><time>{e.time}</time><span className={`log-kind ${e.level}`}>{e.kind}</span><p>{e.text}</p><ChevronRight size={14} /></div>)}</section></>; }
+
+function Overview({ state, now, secondsToBlock, setPage }: { state: GameState; now: number; secondsToBlock: number; setPage: (p: Page) => void }) {
+  const power = totalPower(state, now);
+  const league = leagueFor(permanentPower(state));
+  const preview = previewBlockRewards(state, now);
+  const mm = Math.floor(secondsToBlock / 60);
+  const ss = String(secondsToBlock % 60).padStart(2, "0");
+  const latest = state.blockHistory[0];
+  return (
+    <>
+      <div className="hero">
+        <div>
+          <span className="eyebrow">SIMULATION MODE · PLAY, MINE, UPGRADE — NOTHING HERE IS REAL CRYPTO</span>
+          <h2>Build your rig,<br /><em>mine the blocks.</em></h2>
+          <p>Play mini-games for temporary power, buy virtual miners for permanent power, split your power across coins, and collect your share of every simulated block.</p>
+        </div>
+        <div className="hero-readout"><span>NEXT BLOCK</span><strong>{mm}:{ss}</strong><small><i /> Block #{state.blockHeight + 1} closing soon</small></div>
+      </div>
+      <div className="metric-grid">
+        <MetricCard label="Total mining power" value={fmtGh(power)} sub={`${league.name} league · pool ×${league.poolMultiplier}`} icon={Zap} />
+        <MetricCard label="RLT balance" value={fmtRlt(state.rlt)} sub="In-game currency · spend in Shop" icon={CircleDollarSign} tone="lavender" />
+        <MetricCard label="Blocks mined" value={String(state.stats.blocksMined)} sub={`Next block in ${mm}:${ss}`} icon={Blocks} tone="amber" />
+        <MetricCard label="Temporary power" value={fmtGh(tempPowerNow(state, now))} sub="From mini-games · expires" icon={Bolt} tone="blue" />
+      </div>
+      <div className="overview-grid">
+        <section className="panel">
+          <SectionTitle eyebrow="NEXT BLOCK PREVIEW" title="Your share of the next block" action={<button className="text-button" onClick={() => setPage("league")}>Allocate power <ChevronRight size={14} /></button>} />
+          {COIN_IDS.map((id) => (
+            <div className="rack-row" key={id}>
+              <div><strong>{COINS[id].name} ({id})</strong><small>{state.allocations[id]}% of your power</small></div>
+              <b>≈ {(preview.rewards[id] ?? 0).toFixed(COINS[id].decimals > 4 ? 6 : 4)} {id}</b>
+            </div>
+          ))}
+          <p className="rc-muted">Preview only — the real share depends on your power when the block closes. Block interval is {state.blockIntervalSec}s (accelerated for demo; the real RollerCoin concept closes blocks roughly every 10 minutes).</p>
+        </section>
+        <section className="panel">
+          <SectionTitle eyebrow="LATEST BLOCK" title="Chain pulse" action={<button className="text-button" onClick={() => setPage("league")}>All blocks <ChevronRight size={14} /></button>} />
+          {latest ? (
+            <>
+              <div className="block-hero"><div className="block-orb"><Blocks size={22} /></div><div><span>HEIGHT</span><strong>#{latest.height}</strong><small className="mono">{latest.league} league · {new Date(latest.at).toLocaleTimeString("en-GB")}</small></div></div>
+              <div className="mini-stats">
+                <div><span>RLT BONUS</span><b>+{latest.rltBonus.toFixed(1)} RLT</b></div>
+                <div><span>POWER</span><b>{fmtGh(latest.totalPowerGh)}</b></div>
+                <div><span>COINS</span><b>{Object.keys(latest.rewards).length} types</b></div>
+              </div>
+            </>
+          ) : (
+            <p className="rc-muted">No blocks mined yet. Your first block closes in {mm}:{ss}.</p>
+          )}
+          <div className="rc-row" style={{ marginTop: 16 }}>
+            <button className="primary-button" onClick={() => setPage("games")}><Zap size={14} /> Play mini-games</button>
+            <button className="secondary-button" onClick={() => setPage("shop")}>Buy a miner</button>
+          </div>
+        </section>
+      </div>
+      <div className="overview-grid bottom">
+        <section className="panel">
+          <SectionTitle eyebrow="MINING ROOM" title="Your rig at a glance" action={<button className="text-button" onClick={() => setPage("room")}>Open room <ChevronRight size={14} /></button>} />
+          <Mine3DScene online={state.ownedMiners.filter((m) => m.on).length} />
+          <p className="rc-muted" style={{ marginTop: 10 }}>{state.ownedMiners.length} miner(s) installed · {state.racks.length} rack(s) · Room level {state.roomLevel}</p>
+        </section>
+        <section className="panel event-panel">
+          <SectionTitle eyebrow="EVENT LOG" title="Latest signals" action={<button className="text-button" onClick={() => setPage("events")}>View all <ChevronRight size={14} /></button>} />
+          {state.events.slice(0, 4).map((e) => (
+            <div className="event-row" key={e.id}><span className={`event-level ${e.level}`} /><div><strong>{e.text}</strong><small>{e.kind} · {e.time}</small></div></div>
+          ))}
+        </section>
+      </div>
+    </>
+  );
+}
+
+function SettingsView({ state, onPause, onReset, onInterval }: { state: GameState; onPause: () => void; onReset: () => void; onInterval: (sec: number) => void }) {
+  return (
+    <>
+      <SectionTitle eyebrow="CONTROL / SIMULATION" title="Settings" action={<Badge tone="lavender">{state.paused ? "PAUSED" : "LIVE"}</Badge>} />
+      <div className="settings-layout">
+        <section className="panel settings-panel">
+          <span className="eyebrow">BLOCK INTERVAL (DEMO SPEED)</span>
+          <div className="preset-row" style={{ marginTop: 10 }}>
+            {[30, 60, 120, 300].map((sec) => (
+              <button key={sec} className={state.blockIntervalSec === sec ? "selected" : ""} onClick={() => onInterval(sec)}>
+                {sec >= 60 ? `${sec / 60} min` : `${sec}s`}
+              </button>
+            ))}
+          </div>
+          <p className="rc-muted">The real RollerCoin concept closes blocks roughly every 10 minutes. This game defaults to 60 seconds so you can actually see rewards while playing. Longer intervals feel more like the original — change it any time.</p>
+          <div className="rc-row">
+            <button className="secondary-button" onClick={onPause}>{state.paused ? <Play size={14} /> : <Pause size={14} />} {state.paused ? "Resume game" : "Pause game"}</button>
+            <button className="secondary-button" onClick={onReset}><RotateCcw size={14} /> Reset game</button>
+          </div>
+          <div className="seed-note"><ShieldCheck size={15} /><span><strong>Save location</strong><small>Progress is stored in your browser&apos;s localStorage ({`rollercoin-state-v1`}). Clearing browser data resets the game.</small></span></div>
+        </section>
+        <section className="panel settings-side">
+          <span className="eyebrow">SIMULATION CONTRACT</span>
+          <h3>Safe by design</h3>
+          <p>This game never connects to a blockchain, wallet, pool, or payment rail. RLT and mined coins are virtual numbers only.</p>
+          <div className="contract-row"><Check size={14} /> No real mining</div>
+          <div className="contract-row"><Check size={14} /> No real tokens or payouts</div>
+          <div className="contract-row"><Check size={14} /> No wallet connection or seed phrase</div>
+          <div className="contract-row"><Check size={14} /> No RollerCoin branding or copied assets</div>
+        </section>
+      </div>
+    </>
+  );
+}

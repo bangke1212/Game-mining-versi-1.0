@@ -1,10 +1,28 @@
-# Blockchain Mining Mission Control
+# Roller-Mine Simulator — Mining Game (Simulation)
 
-Dashboard simulasi mining blockchain yang terinspirasi NASA Mission Control. Aplikasi ini mensimulasikan worker, hashrate, block, transaksi, reward, virtual electricity cost, upgrade, failure/recovery, dan event log tanpa terhubung ke blockchain publik.
+Game mining 2D/virtual ala konsep RollerCoin: bangun rig virtual, main
+mini-game untuk power sementara, beli miner untuk power permanen, bagi power
+ke beberapa coin, dan kumpulkan bagianmu dari tiap simulated block.
 
-> **SIMULATION MODE — NO REAL BLOCKCHAIN OR FINANCIAL VALUE**
+> **SIMULATION MODE — NO REAL CRYPTO, NO REAL MONEY, NO REAL WITHDRAWAL**
 >
-> Semua angka SIM, harga, profit, hashrate dan daya adalah parameter virtual untuk pembelajaran serta tidak memiliki nilai uang.
+> Semua RLT, coin, hashrate, dan reward adalah angka virtual untuk permainan.
+> Game ini tidak terhubung ke blockchain, wallet, atau pembayaran apa pun, dan
+> tidak menghasilkan crypto asli. Terinspirasi konsep RollerCoin (lihat
+> `docs/ROLLERCOIN-CONCEPT.md`), bukan clone bermerek dan bukan afiliasi.
+
+## Cara main
+
+1. **Main mini-game** (Clicker Rush, Memory Match, Reaction Rush) untuk dapat
+   temporary mining power (+GH/s selama 10 menit) dan bonus RLT.
+2. **Beli miner di Shop** pakai RLT, pasang di rack di Mining Room — itu
+   permanent power kamu.
+3. **Atur alokasi power** per coin (BTC, ETH, DOGE, SOL, BNB, LTC) di menu
+   Blocks & Leagues. Total selalu 100%.
+4. **Tiap block** (default 60 detik, bisa diubah di Settings) reward pool tiap
+   coin dibagi proporsional dengan power kamu. Naik league (Bronze → Titan)
+   untuk pengali reward pool yang lebih besar.
+5. **Klaim daily login & quest** di Wallet untuk RLT tambahan.
 
 ## Jalankan untuk pemula
 
@@ -22,8 +40,25 @@ npm run build
 
 ## Menu yang tersedia
 
-Aplikasi memiliki sembilan area: Mining Overview, Virtual Mining Room, Mining Fleet, Blockchain Explorer, Transaction Mempool, Rewards & Economy, System Metrics, Settings & Upgrades, serta Real-Time Event Log. State simulator disimpan di `localStorage`, sehingga refresh tidak menciptakan block atau reward baru. Tombol reset meminta konfirmasi dan membuat state genesis virtual baru.
+Delapan area: Mining Overview, Mining Room (termasuk scene 3D), Miner Shop,
+Mini-Games, Wallet & Quests, Blocks & Leagues, Settings, serta Event Log.
+Progress disimpan di `localStorage` key `rollercoin-state-v1`, sehingga refresh
+tidak menghapus progress. State lama dashboard (`bmmc-state`) dimigrasi sekali
+menjadi grant RLT. Tombol reset meminta konfirmasi.
+
+## Struktur repo
+
+- `lib/rollercoin/types.ts` — tipe `Miner`, `Rack`, `Coin`, `League`, `GameState`
+- `lib/rollercoin/catalog.ts` — katalog miner, rack, coin, league
+- `lib/rollercoin/engine.ts` — logika inti (power, league, block reward, shop, quest)
+- `lib/rollercoin/storage.ts` — load/save localStorage + migrasi state lama
+- `components/rollercoin/` — `MiningRoom`, `Shop`, `MiniGames`, `Wallet`, `League`
+- `app/page.tsx` — shell tipis (navigasi + tick 1 detik), bukan lagi 1 file 26KB
+- `app/mine-3d-scene.tsx` — ruang mining 3D (React Three Fiber), dipertahankan
+- `docs/ROLLERCOIN-CONCEPT.md` — konsep yang ditiru dan yang sengaja tidak ditiru
 
 ## Catatan teknis
 
-Repo awal merupakan dashboard OreOps berbasis Next.js dan React Three Fiber. Revisi ini mengganti domain UI menjadi Blockchain Mining Mission Control sambil mempertahankan stack Next.js, React, lucide-react, dan Three.js melalui React Three Fiber. Simulasi saat ini berjalan di browser sebagai MVP yang dapat langsung dipreview; backend Node.js/file JSON dan endpoint REST pada master prompt belum diaktifkan di repo ini.
+Next.js 16 (static export) + React 19 + TypeScript + lucide-react + Three.js
+via React Three Fiber. Semua simulasi berjalan di browser; tidak ada backend,
+tidak ada network call eksternal untuk game ini.
