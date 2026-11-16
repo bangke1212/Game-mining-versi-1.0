@@ -118,17 +118,6 @@ export function computeTelemetry(s: GameState, now: number): RigTelemetry {
   };
 }
 
-/** Miners to visualise in the 3D room: first 4 owned, in purchase order. */
-export type SceneMiner = { name: string; powerGh: number; on: boolean; accent: string };
-const ACCENTS = ["#8cffd1", "#b69cff", "#ffc46b", "#79b9ff"];
-export function sceneMiners(s: GameState): { shown: SceneMiner[]; extra: number } {
-  const shown = s.ownedMiners.slice(0, 4).map((m, i) => {
-    const item = minerById(m.catalogId);
-    return { name: item?.name ?? "Miner", powerGh: item?.powerGh ?? 0, on: m.on, accent: ACCENTS[i % ACCENTS.length] };
-  });
-  return { shown, extra: Math.max(0, s.ownedMiners.length - shown.length) };
-}
-
 /* ---------- formatting (fixed-width, no layout shift) ---------- */
 
 export const fmtLiveGh = (n: number) => `${n.toLocaleString("en-US", { maximumFractionDigits: 1 })} GH/s`;

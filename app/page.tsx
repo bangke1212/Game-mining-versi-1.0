@@ -5,7 +5,7 @@ import {
   List, Menu, Pause, Play, Radio, RotateCcw, Settings2, ShieldCheck, ShoppingCart, Trophy,
   Wallet, X, Zap,
 } from "lucide-react";
-import Mine3DScene from "./mine-3d-scene";
+import RigRack from "@/components/rollercoin/RigRack";
 import LiveTelemetry from "@/components/rollercoin/LiveTelemetry";
 import MiningRoom from "@/components/rollercoin/MiningRoom";
 import Shop from "@/components/rollercoin/Shop";
@@ -20,7 +20,6 @@ import {
   sellMiner, setAllocation, tempPowerNow, toggleMiner, totalPower,
 } from "@/lib/rollercoin/engine";
 import { clearState, loadState, saveState } from "@/lib/rollercoin/storage";
-import { computeTelemetry, sceneMiners } from "@/lib/rollercoin/telemetry";
 import type { GameState, MiniGameResult } from "@/lib/rollercoin/types";
 import { COIN_IDS } from "@/lib/rollercoin/types";
 
@@ -130,6 +129,10 @@ export default function HomePage() {
         </header>
 
         <div className="content">
+          {!loaded ? (
+            <div className="panel"><p className="rc-muted">Loading your rig…</p></div>
+          ) : (
+            <>
           {page === "overview" && (
             <Overview state={state} now={now} secondsToBlock={secondsToBlock} setPage={setPage} />
           )}
@@ -169,6 +172,8 @@ export default function HomePage() {
               </section>
             </>
           )}
+            </>
+          )}
           <footer>
             <span>ROLLER-MINE SIMULATOR · INSPIRED BY THE ROLLERCOIN MINING CONCEPT · SIMULATED ENVIRONMENT</span>
             <span><ShieldCheck size={13} /> No wallet · No payments · No real crypto</span>
@@ -183,7 +188,6 @@ function Overview({ state, now, secondsToBlock, setPage }: { state: GameState; n
   const power = totalPower(state, now);
   const league = leagueFor(permanentPower(state));
   const preview = previewBlockRewards(state, now);
-  const telemetry = computeTelemetry(state, now);
   const mm = Math.floor(secondsToBlock / 60);
   const ss = String(secondsToBlock % 60).padStart(2, "0");
   const latest = state.blockHistory[0];
@@ -238,14 +242,7 @@ function Overview({ state, now, secondsToBlock, setPage }: { state: GameState; n
       <div className="overview-grid bottom">
         <section className="panel">
           <SectionTitle eyebrow="MINING ROOM" title="Your rig at a glance" action={<button className="text-button" onClick={() => setPage("room")}>Open room <ChevronRight size={14} /></button>} />
-          <Mine3DScene
-            miners={sceneMiners(state).shown}
-            online={state.ownedMiners.filter((m) => m.on).length}
-            total={state.ownedMiners.length}
-            liveGh={telemetry.liveTotalGh}
-            avgTempC={telemetry.avgTempC}
-          />
-          <p className="rc-muted" style={{ marginTop: 10 }}>{state.ownedMiners.length} miner(s) installed · {state.racks.length} rack(s) · Room level {state.roomLevel}</p>
+          <RigRack state={state} now={now} compact onGoShop={() => setPage("shop")} />
         </section>
         <section className="panel event-panel">
           <SectionTitle eyebrow="EVENT LOG" title="Latest signals" action={<button className="text-button" onClick={() => setPage("events")}>View all <ChevronRight size={14} /></button>} />
