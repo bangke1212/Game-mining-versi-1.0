@@ -6,6 +6,7 @@ import {
   Wallet, X, Zap,
 } from "lucide-react";
 import Mine3DScene from "./mine-3d-scene";
+import LiveTelemetry from "@/components/rollercoin/LiveTelemetry";
 import MiningRoom from "@/components/rollercoin/MiningRoom";
 import Shop from "@/components/rollercoin/Shop";
 import MiniGames from "@/components/rollercoin/MiniGames";
@@ -19,6 +20,7 @@ import {
   sellMiner, setAllocation, tempPowerNow, toggleMiner, totalPower,
 } from "@/lib/rollercoin/engine";
 import { clearState, loadState, saveState } from "@/lib/rollercoin/storage";
+import { computeTelemetry, sceneMiners } from "@/lib/rollercoin/telemetry";
 import type { GameState, MiniGameResult } from "@/lib/rollercoin/types";
 import { COIN_IDS } from "@/lib/rollercoin/types";
 
@@ -132,7 +134,7 @@ export default function HomePage() {
             <Overview state={state} now={now} secondsToBlock={secondsToBlock} setPage={setPage} />
           )}
           {page === "room" && (
-            <MiningRoom state={state} onToggle={(uid) => update((s) => toggleMiner(s, uid))} onSell={(uid) => update((s) => sellMiner(s, uid).state)} />
+            <MiningRoom state={state} now={now} secondsToBlock={secondsToBlock} onToggle={(uid) => update((s) => toggleMiner(s, uid))} onSell={(uid) => update((s) => sellMiner(s, uid).state)} />
           )}
           {page === "shop" && (
             <Shop state={state} onBuyMiner={(id) => attempt((s) => buyMiner(s, id))} onBuyRack={(id) => attempt((s) => buyRack(s, id))} onExpandRoom={() => attempt((s) => expandRoom(s))} />
@@ -181,6 +183,7 @@ function Overview({ state, now, secondsToBlock, setPage }: { state: GameState; n
   const power = totalPower(state, now);
   const league = leagueFor(permanentPower(state));
   const preview = previewBlockRewards(state, now);
+  const telemetry = computeTelemetry(state, now);
   const mm = Math.floor(secondsToBlock / 60);
   const ss = String(secondsToBlock % 60).padStart(2, "0");
   const latest = state.blockHistory[0];
@@ -200,6 +203,7 @@ function Overview({ state, now, secondsToBlock, setPage }: { state: GameState; n
         <MetricCard label="Blocks mined" value={String(state.stats.blocksMined)} sub={`Next block in ${mm}:${ss}`} icon={Blocks} tone="amber" />
         <MetricCard label="Temporary power" value={fmtGh(tempPowerNow(state, now))} sub="From mini-games · expires" icon={Bolt} tone="blue" />
       </div>
+      <LiveTelemetry state={state} now={now} secondsToBlock={secondsToBlock} showMiners={false} />
       <div className="overview-grid">
         <section className="panel">
           <SectionTitle eyebrow="NEXT BLOCK PREVIEW" title="Your share of the next block" action={<button className="text-button" onClick={() => setPage("league")}>Allocate power <ChevronRight size={14} /></button>} />
@@ -234,7 +238,13 @@ function Overview({ state, now, secondsToBlock, setPage }: { state: GameState; n
       <div className="overview-grid bottom">
         <section className="panel">
           <SectionTitle eyebrow="MINING ROOM" title="Your rig at a glance" action={<button className="text-button" onClick={() => setPage("room")}>Open room <ChevronRight size={14} /></button>} />
-          <Mine3DScene online={state.ownedMiners.filter((m) => m.on).length} />
+          <Mine3DScene
+            miners={sceneMiners(state).shown}
+            online={state.ownedMiners.filter((m) => m.on).length}
+            total={state.ownedMiners.length}
+            liveGh={telemetry.liveTotalGh}
+            avgTempC={telemetry.avgTempC}
+          />
           <p className="rc-muted" style={{ marginTop: 10 }}>{state.ownedMiners.length} miner(s) installed · {state.racks.length} rack(s) · Room level {state.roomLevel}</p>
         </section>
         <section className="panel event-panel">

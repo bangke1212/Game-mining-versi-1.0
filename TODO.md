@@ -15,3 +15,4 @@
 - [x] `docs/ROLLERCOIN-CONCEPT.md` mendokumentasikan konsep yang ditiru dan yang tidak ditiru.
 - [ ] Backend / multiplayer / leaderboard pemain asli — sengaja tidak dibuat (game ini murni simulasi browser).
 - [ ] Payout crypto asli — sengaja tidak dibuat, dan tidak akan dibuat.
+- [x] Live Rig Telemetry (`lib/rollercoin/telemetry.ts` + `components/rollercoin/LiveTelemetry.tsx`): live GH/s per miner (±3% deterministik), suhu, fan, watt, uptime, sparkline 60 detik, countdown block, boost dengan countdown mm:ss; tampil di Overview (strip) dan Mining Room (lengkap). Label 3D kini memakai miner asli dari state, bukan nama hardcoded.
